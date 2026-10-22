@@ -88,3 +88,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .row.done .nm,.row.done .cat,.row.done .jam{color:var(--muted)}
 .row.done .cat{background:#eef1f4}
 .row.done .seg button:disabled{opacity:.6}.row.done .seg .on{opacity:1}
+
+.hr{display:flex;gap:12px;align-items:center}
+@media print{.hr button{display:none!important}}

@@ -22,6 +22,7 @@ const onErr = e => e.status === 401 ? location.reload() : msg(e.message, true);
 
 function show(u) {
   csrf = u.csrf; isAdmin = u.role === 'admin';
+  $('#clear-all').hidden = !isAdmin;
   $('#user').textContent = u.nama;
   $('#tab-users-btn').hidden = u.role !== 'admin';
   $('#login-view').hidden = true;
@@ -194,11 +195,8 @@ function render() {
       const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ghost small'; ok.textContent = 'Semua OK';
       ok.onclick = () => g.querySelectorAll('.row').forEach(r => setStatus(r, 'OK', true));   // hanya yang masih kosong
       const label = PRI[last];   // disimpan di sini supaya tidak ikut berubah saat loop lanjut
-      const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ghost small danger'; clr.textContent = 'Hapus semua';
-      clr.onclick = () => {
-        if (confirm(`Kosongkan semua item di ${label} yang belum disimpan? Item yang sudah tersimpan tidak terpengaruh.`))
-          g.querySelectorAll('.row').forEach(clearRow);
-      };
+      const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ghost small danger'; clr.textContent = 'Clear'; clr.title = isAdmin ? 'Admin: kosongkan kelompok ini, termasuk item tersimpan dan fotonya' : 'Kosongkan item yang belum disimpan';
+      clr.onclick = () => clearRows([...g.querySelectorAll('.row')], label);
       const act = document.createElement('div'); act.className = 'act'; act.append(ok, clr);
       h.append(t, act); g.append(h); list.append(g);
     }
@@ -216,6 +214,19 @@ function upd() {
   const info = $('#saved-info');   // keterangan di bagian bawah
   info.textContent = saved ? `✔ Checklist telah terupdate (${saved} item tersimpan)` : 'Klik "Simpan" di tiap item untuk menyimpan.';
   info.className = saved ? 'ok' : 'meta';
+}
+
+// Clear: semua orang mengosongkan item yang belum disimpan; admin juga membersihkan item tersimpan + fotonya di server
+async function clearRows(rows, label) {
+  if (!isAdmin) {
+    if (confirm(`Kosongkan item di ${label} yang belum disimpan? Item yang sudah tersimpan tidak terpengaruh.`)) rows.forEach(clearRow);
+    return;
+  }
+  if (!confirm(`CLEAR ${label}?\nSemua item dikosongkan, termasuk yang sudah tersimpan beserta fotonya (file foto ikut dihapus dari server).`)) return;
+  try {
+    const d = await api('admin_data.php', 'POST', {action: 'clear_items', tanggal: $('#tanggal').value, shift: $('#shift').value, item_ids: rows.map(r => items[r.dataset.i].id)});
+    await load(); msg(d.message);
+  } catch (e) { onErr(e); }
 }
 
 // Simpan satu item. Setelah tersimpan item terkunci; server juga menolak perubahan (kecuali admin).
@@ -368,7 +379,17 @@ async function preview() {
       const t = document.createElement('b'); t.textContent = `${dmy(s.tanggal)} · ${s.shift} · ${s.petugas}`;
       const c = document.createElement('span'); c.className = 'meta';
       c.textContent = `OK ${s.c.OK} · Warning ${s.c.Warning} · Down ${s.c.Down} · N/A ${s.c['N/A']} · 📷 ${s.rows.reduce((n, r) => n + r.ev.length, 0)} foto`;
-      h.append(t, c); g.append(h);
+      const right = document.createElement('span'); right.className = 'hr'; right.append(c);
+      if (isAdmin) {   // admin: hapus rekap sesi ini beserta fotonya
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'ghost small danger'; del.textContent = 'Hapus';
+        del.onclick = async () => {
+          if (!confirm(`HAPUS rekap ${dmy(s.tanggal)} · ${s.shift}?\nSemua item dan foto pada sesi ini dihapus permanen dan tidak bisa dikembalikan.`)) return;
+          try { await api('admin_data.php', 'POST', {action: 'delete_session', tanggal: s.tanggal, shift: s.shift}); preview(); }
+          catch (e) { alert(e.message); }
+        };
+        right.append(del);
+      }
+      h.append(t, right); g.append(h);
       s.rows.forEach(r => {
         const row = document.createElement('div'); row.className = 'rrow'; row.dataset.st = r.status;
         const n = document.createElement('div'); n.textContent = r.item;
@@ -384,6 +405,7 @@ async function preview() {
   } catch (e) { box.textContent = e.message; if (e.status === 401) location.reload(); }
 }
 $('#show-rpt').onclick = preview;
+$('#clear-all').onclick = () => clearRows([...document.querySelectorAll('.row')], 'seluruh checklist ini');
 $('#print-rpt').onclick = () => window.print();   // di dialog cetak pilih "Save as PDF"
 $('#only-bad').onchange = e => $('#rpt').classList.toggle('only', e.target.checked);
 
