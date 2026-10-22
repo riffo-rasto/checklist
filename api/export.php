@@ -10,7 +10,7 @@ $fmt = ($_GET['format'] ?? 'csv') === 'xlsx' ? 'xlsx' : 'csv';
 foreach ([$from, $to] as $d) if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) out(['error' => 'Periode tidak valid'], 422);
 
 $PRI = ['P1' => 'P1 – Kritis', 'P2' => 'P2 – Tinggi', 'P3' => 'P3 – Menengah', 'P4' => 'P4 – Rutin', 'END' => 'Penutup shift'];
-$s = db()->prepare("SELECT s.tanggal, s.shift, i.id AS item_id, i.urutan, i.prioritas, i.nama_item, e.status, e.catatan,
+$s = db()->prepare("SELECT s.tanggal, s.shift, s.putaran, i.id AS item_id, i.urutan, i.prioritas, i.nama_item, e.status, e.catatan,
         TIME_FORMAT(e.jam_cek, '%H:%i') AS jam, COALESCE(ue.nama, us.nama) AS petugas,
         DATE_FORMAT(e.diisi_pada, '%d/%m/%Y %H:%i') AS diisi
     FROM checklist_sessions s
@@ -18,8 +18,8 @@ $s = db()->prepare("SELECT s.tanggal, s.shift, i.id AS item_id, i.urutan, i.prio
     JOIN checklist_items i ON i.id = e.item_id
     JOIN users us ON us.id = s.user_id
     LEFT JOIN users ue ON ue.id = e.user_id
-    WHERE s.tanggal BETWEEN ? AND ?
-    ORDER BY s.tanggal, FIELD(s.shift, 'Pagi', 'Siang', 'Malam'), i.urutan");
+    WHERE s.tanggal BETWEEN ? AND ? AND e.status IS NOT NULL
+    ORDER BY s.tanggal, FIELD(s.shift, 'Pagi', 'Siang', 'Malam'), s.putaran, i.urutan");
 $s->execute([$from, $to]);
 
 $dmy = fn($d) => date('d/m/Y', strtotime($d));
@@ -28,7 +28,8 @@ $rows = []; $bad = []; $sum = []; $cols = []; $cell = []; $its = [];
 foreach ($s as $r) {
     $st = (string)$r['status'];
     $tgl = $dmy($r['tanggal']);
-    $k = $r['tanggal'] . '|' . $r['shift'];                       // satu kolom = satu tanggal + shift
+    $k = $r['tanggal'] . '|' . $r['shift'] . '|' . $r['putaran'];   // satu kolom = satu tanggal + shift + putaran
+    $r['shift'] .= $r['putaran'] > 1 ? ' #' . $r['putaran'] : '';    // label "Siang #2" untuk putaran ke-2
     $rows[] = [$tgl, $r['shift'], $PRI[$r['prioritas']], $r['nama_item'], $st, (string)$r['catatan'], (string)$r['jam'], (string)$r['petugas'], (string)$r['diisi']];
     $cols[$k] = substr($tgl, 0, 5) . ' ' . $r['shift'];
     $cell[$r['item_id']][$k] = $st;
@@ -86,7 +87,7 @@ $lap = [];
 foreach ($rep as $sess) {
     $nf = array_sum(array_map(fn($r) => count($r['ev']), $sess['rows']));
     $c = $sess['c'];
-    $lap[] = ['banner' => $dmy($sess['tanggal']) . ' · ' . $sess['shift'] . ' · ' . $sess['petugas']
+    $lap[] = ['banner' => $dmy($sess['tanggal']) . ' · ' . $sess['shift'] . ($sess['putaran'] > 1 ? ' · Putaran ' . $sess['putaran'] : '') . ' · ' . $sess['petugas']
         . "      OK {$c['OK']} · Warning {$c['Warning']} · Down {$c['Down']} · N/A {$c['N/A']} · $nf foto"];
     foreach ($sess['rows'] as $r) {
         $n = count($r['ev']);

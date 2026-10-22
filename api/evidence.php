@@ -1,6 +1,7 @@
 <?php
 // Evidence gambar: lihat (GET), unggah (POST multipart), hapus (POST JSON)
 require __DIR__ . '/config.php';
+require __DIR__ . '/lib_session.php';
 need_login();
 const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // di luar web root, hanya bisa dibuka lewat file ini
 $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -38,11 +39,7 @@ if (!empty($_FILES['file'])) {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl) || !in_array($sh, ['Pagi', 'Siang', 'Malam'], true)) out(['error' => 'Tanggal / shift tidak valid'], 422);
 
     $pdo = db();
-    $pdo->prepare('INSERT INTO checklist_sessions (tanggal, shift, user_id) VALUES (?,?,?) ON DUPLICATE KEY UPDATE user_id = user_id')
-        ->execute([$tgl, $sh, $_SESSION['uid']]);                 // sesi dibuat otomatis kalau belum ada
-    $q = $pdo->prepare('SELECT id FROM checklist_sessions WHERE tanggal = ? AND shift = ?');
-    $q->execute([$tgl, $sh]);
-    $sid = $q->fetchColumn();
+    $sid = current_session($tgl, $sh, (int)$_SESSION['uid']);   // putaran terbaru; dibuat otomatis kalau belum ada
     if (item_locked((int)$sid, $item)) out(['error' => 'Item sudah disimpan dan terkunci, foto tidak bisa ditambah'], 403);
     $c = $pdo->prepare('SELECT COUNT(*) FROM evidence WHERE session_id = ? AND item_id = ?');
     $c->execute([$sid, $item]);

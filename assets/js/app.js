@@ -195,7 +195,7 @@ function render() {
       const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ghost small'; ok.textContent = 'Semua OK';
       ok.onclick = () => g.querySelectorAll('.row').forEach(r => setStatus(r, 'OK', true));   // hanya yang masih kosong
       const label = PRI[last];   // disimpan di sini supaya tidak ikut berubah saat loop lanjut
-      const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ghost small danger'; clr.textContent = 'Clear'; clr.title = isAdmin ? 'Admin: kosongkan kelompok ini, termasuk item tersimpan dan fotonya' : 'Kosongkan item yang belum disimpan';
+      const clr = document.createElement('button'); clr.type = 'button'; clr.className = 'ghost small danger'; clr.textContent = 'Clear'; clr.title = 'Kosongkan item yang belum disimpan (data tersimpan tidak tersentuh)';
       clr.onclick = () => clearRows([...g.querySelectorAll('.row')], label);
       const act = document.createElement('div'); act.className = 'act'; act.append(ok, clr);
       h.append(t, act); g.append(h); list.append(g);
@@ -216,15 +216,15 @@ function upd() {
   info.className = saved ? 'ok' : 'meta';
 }
 
-// Clear: semua orang mengosongkan item yang belum disimpan; admin juga membersihkan item tersimpan + fotonya di server
-async function clearRows(rows, label) {
-  if (!isAdmin) {
-    if (confirm(`Kosongkan item di ${label} yang belum disimpan? Item yang sudah tersimpan tidak terpengaruh.`)) rows.forEach(clearRow);
-    return;
-  }
-  if (!confirm(`CLEAR ${label}?\nSemua item dikosongkan, termasuk yang sudah tersimpan beserta fotonya (file foto ikut dihapus dari server).`)) return;
+// Clear per kelompok: hanya mengosongkan item yang BELUM disimpan (data tersimpan tidak tersentuh)
+function clearRows(rows, label) {
+  if (confirm(`Kosongkan item di ${label} yang belum disimpan? Item yang sudah tersimpan tidak terpengaruh.`)) rows.forEach(clearRow);
+}
+// Admin: Clear checklist = mulai putaran baru. Data yang sudah tersimpan TETAP ada di rekap.
+async function clearChecklist() {
+  if (!confirm('CLEAR checklist ini?\nChecklist dikosongkan supaya bisa diisi ulang. Data yang sudah tersimpan TETAP ada di rekap (tidak dihapus).')) return;
   try {
-    const d = await api('admin_data.php', 'POST', {action: 'clear_items', tanggal: $('#tanggal').value, shift: $('#shift').value, item_ids: rows.map(r => items[r.dataset.i].id)});
+    const d = await api('admin_data.php', 'POST', {action: 'clear_checklist', tanggal: $('#tanggal').value, shift: $('#shift').value});
     await load(); msg(d.message);
   } catch (e) { onErr(e); }
 }
@@ -376,15 +376,15 @@ async function preview() {
     d.sessions.forEach(s => {
       const g = document.createElement('section'); g.className = 'grp';
       const h = document.createElement('div'); h.className = 'grp-h';
-      const t = document.createElement('b'); t.textContent = `${dmy(s.tanggal)} · ${s.shift} · ${s.petugas}`;
+      const t = document.createElement('b'); t.textContent = `${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''} · ${s.petugas}`;
       const c = document.createElement('span'); c.className = 'meta';
       c.textContent = `OK ${s.c.OK} · Warning ${s.c.Warning} · Down ${s.c.Down} · N/A ${s.c['N/A']} · 📷 ${s.rows.reduce((n, r) => n + r.ev.length, 0)} foto`;
       const right = document.createElement('span'); right.className = 'hr'; right.append(c);
       if (isAdmin) {   // admin: hapus rekap sesi ini beserta fotonya
         const del = document.createElement('button'); del.type = 'button'; del.className = 'ghost small danger'; del.textContent = 'Hapus';
         del.onclick = async () => {
-          if (!confirm(`HAPUS rekap ${dmy(s.tanggal)} · ${s.shift}?\nSemua item dan foto pada sesi ini dihapus permanen dan tidak bisa dikembalikan.`)) return;
-          try { await api('admin_data.php', 'POST', {action: 'delete_session', tanggal: s.tanggal, shift: s.shift}); preview(); }
+          if (!confirm(`HAPUS rekap ${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''}?\nSemua item dan foto pada sesi ini dihapus permanen dan tidak bisa dikembalikan.`)) return;
+          try { await api('admin_data.php', 'POST', {action: 'delete_session', id: s.id}); preview(); }
           catch (e) { alert(e.message); }
         };
         right.append(del);
@@ -405,7 +405,7 @@ async function preview() {
   } catch (e) { box.textContent = e.message; if (e.status === 401) location.reload(); }
 }
 $('#show-rpt').onclick = preview;
-$('#clear-all').onclick = () => clearRows([...document.querySelectorAll('.row')], 'seluruh checklist ini');
+$('#clear-all').onclick = clearChecklist;
 $('#print-rpt').onclick = () => window.print();   // di dialog cetak pilih "Save as PDF"
 $('#only-bad').onchange = e => $('#rpt').classList.toggle('only', e.target.checked);
 

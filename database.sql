@@ -23,8 +23,9 @@ CREATE TABLE checklist_sessions (
   tanggal DATE NOT NULL,
   shift ENUM('Pagi','Siang','Malam') NOT NULL,
   user_id INT NOT NULL,
+  putaran INT NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_tgl_shift (tanggal, shift),
+  UNIQUE KEY uq_tgl_shift_put (tanggal, shift, putaran),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

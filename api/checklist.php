@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/config.php';
+require __DIR__ . '/lib_session.php';
 need_login();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -10,13 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $tgl) || !in_array($sh, ['Pagi', 'Siang', 'Malam'], true))
         out(['error' => 'Tanggal / shift tidak valid'], 422);
 
+    $sid = current_session($tgl, $sh, (int)$_SESSION['uid']);   // putaran terbaru untuk tanggal + shift
     $pdo = db();
     $pdo->beginTransaction();
-    $pdo->prepare('INSERT INTO checklist_sessions (tanggal, shift, user_id) VALUES (?,?,?)
-                   ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)')->execute([$tgl, $sh, $_SESSION['uid']]);
-    $q = $pdo->prepare('SELECT id FROM checklist_sessions WHERE tanggal = ? AND shift = ?');
-    $q->execute([$tgl, $sh]);
-    $sid = $q->fetchColumn();
+    $pdo->prepare('UPDATE checklist_sessions SET user_id = ? WHERE id = ?')->execute([$_SESSION['uid'], $sid]);
 
     $ins = $pdo->prepare('INSERT INTO checklist_entries (session_id, item_id, status, catatan, jam_cek, user_id, diisi_pada) VALUES (?,?,?,?,?,?,?)
         ON DUPLICATE KEY UPDATE
@@ -52,14 +50,14 @@ $sh = $_GET['shift'] ?? 'Pagi';
 $s = db()->prepare("SELECT i.id, i.nama_item, i.prioritas, e.status, e.catatan, TIME_FORMAT(e.jam_cek, '%H:%i') AS jam_cek,
         u.nama AS petugas, DATE_FORMAT(e.diisi_pada, '%d/%m %H:%i') AS diisi_pada
     FROM checklist_items i
-    LEFT JOIN checklist_sessions s ON s.tanggal = ? AND s.shift = ?
+    LEFT JOIN checklist_sessions s ON s.tanggal = ? AND s.shift = ? AND s.putaran = (SELECT MAX(x.putaran) FROM checklist_sessions x WHERE x.tanggal = ? AND x.shift = ?)
     LEFT JOIN checklist_entries e ON e.session_id = s.id AND e.item_id = i.id
     LEFT JOIN users u ON u.id = e.user_id
     WHERE i.aktif = 1 ORDER BY i.urutan");
-$s->execute([$tgl, $sh]);
+$s->execute([$tgl, $sh, $tgl, $sh]);
 $items = $s->fetchAll();
-$ev = db()->prepare('SELECT v.item_id, v.id FROM evidence v JOIN checklist_sessions s ON s.id = v.session_id WHERE s.tanggal = ? AND s.shift = ? ORDER BY v.id');
-$ev->execute([$tgl, $sh]);
+$ev = db()->prepare('SELECT v.item_id, v.id FROM evidence v WHERE v.session_id = ? ORDER BY v.id');
+$ev->execute([current_session($tgl, $sh, (int)$_SESSION['uid'], false)]);
 $map = [];
 foreach ($ev as $r) $map[$r['item_id']][] = (int)$r['id'];
 out(['items' => $items, 'evidence' => (object)$map]);

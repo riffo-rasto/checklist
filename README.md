@@ -10,13 +10,13 @@ Aplikasi web untuk mengisi checklist harian NOC per **tanggal dan shift**, lengk
 - Status Warning / Down wajib diberi catatan atau nomor tiket.
 - Tombol **Simpan** di tiap item. Setelah disimpan, item **terkunci** (abu-abu, tanda "Selesai") dan tidak bisa diubah. Checklist hari atau shift berikutnya otomatis kosong lagi.
 - Foto evidence maksimal 5 per item. Foto dikecilkan otomatis di browser (maks. 1280 px). Foto hanya bisa ditambah atau dihapus **sebelum** item disimpan.
-- Rekap: pilih periode, klik **Tampilkan** untuk melihat data lengkap dengan thumbnail foto (klik untuk memperbesar), filter "Hanya Warning / Down", lalu unduh **CSV**, **Excel**, atau **Cetak / PDF**.
+- Rekap: pilih periode, klik **Tampilkan** untuk melihat data lengkap dengan thumbnail foto (klik untuk memperbesar), filter "Hanya Warning / Down", lalu unduh **CSV**, **Excel**, atau **Cetak / PDF**. Rekap hanya memuat item yang sudah **disimpan**; foto dari item yang belum disimpan tidak ikut.
 
 **Admin** (tab **Setting** dan tombol tambahan)
 - Kelola pengguna: tambah, ubah nama dan peran, reset password, nonaktifkan, hapus.
 - Kelola item checklist: tambah, ubah, atur urutan (▲ ▼), nonaktifkan, hapus.
-- Tombol **Ubah** pada item terkunci, **Clear** per kelompok, dan **Clear checklist ini** untuk mengosongkan seluruh checklist (termasuk foto) tanpa menunggu ganti hari.
-- Tombol **Hapus** di rekap untuk membuang data satu tanggal dan shift beserta fotonya.
+- Tombol **Ubah** pada item terkunci, dan **Clear checklist ini** untuk mengosongkan checklist tanpa menunggu ganti hari. Clear **tidak menghapus** apa pun: data yang sudah tersimpan tetap ada di rekap (sebagai "Putaran 1"), dan checklist dibuka kembali kosong sebagai putaran berikutnya.
+- Tombol **Hapus** di rekap untuk membuang data satu tanggal dan shift (satu putaran) beserta fotonya. Ini satu-satunya aksi yang menghapus data rekap.
 
 | Aksi | Petugas | Admin |
 |---|:---:|:---:|
@@ -57,10 +57,12 @@ noc-checklist/
 │   ├── lib_report.php      fungsi rekap bersama (web dan Excel)
 │   ├── export.php          unduh CSV dan Excel
 │   ├── xlsx.php            pembuat file Excel (tanpa library)
-│   ├── admin_data.php      Clear item dan hapus rekap (admin)
+│   ├── admin_data.php      Clear checklist (putaran baru) dan hapus rekap (admin)
+│   ├── lib_session.php     mencari/membuat sesi aktif (putaran terbaru)
 │   └── create_user.php     buat user lewat terminal
 ├── database.sql            instalasi baru (tabel + 21 item contoh)
-└── upgrade_v4.sql          menambah tabel evidence ke database lama
+├── upgrade_v4.sql          menambah tabel evidence ke database lama
+└── upgrade_v5.sql          menambah kolom putaran (fitur Clear tanpa menghapus data)
 ```
 
 ## Instalasi
@@ -129,6 +131,8 @@ sudo rsync -a --exclude 'api/config.php' --exclude '*.sql' noc-checklist/ /var/w
 
 `config.php` dikecualikan supaya kredensial tidak tertimpa. Setelah mengubah `app.js` atau `style.css`, **naikkan nomor `?v=`** di `index.html` (dua baris) lalu tekan Ctrl+F5, supaya browser mengambil file baru, bukan cache lama.
 
+Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya.
+
 ## Referensi API
 
 Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perubahan data (POST) wajib membawa header `X-CSRF-Token`.
@@ -142,7 +146,7 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 | `export.php` | GET | login | Unduh `format=csv` atau `xlsx` (`foto=1/0`) |
 | `users.php` | GET / POST | admin | Daftar, tambah, ubah, hapus pengguna |
 | `items.php` | GET / POST | admin | Daftar, tambah, ubah, urutkan, hapus item |
-| `admin_data.php` | POST | admin | `clear_items`, `delete_session` |
+| `admin_data.php` | POST | admin | `clear_checklist`, `delete_session` |
 
 ## Tabel database
 
@@ -150,7 +154,7 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 |---|---|
 | `users` | akun, peran (`admin` / `petugas`), status aktif |
 | `checklist_items` | daftar item, prioritas (P1–P4, END), urutan, aktif |
-| `checklist_sessions` | satu baris per tanggal + shift |
+| `checklist_sessions` | satu baris per tanggal + shift + putaran (Clear admin membuka putaran baru) |
 | `checklist_entries` | status, catatan, jam, petugas, dan waktu isi tiap item |
 | `evidence` | foto per item per sesi (file disimpan di folder storage) |
 
