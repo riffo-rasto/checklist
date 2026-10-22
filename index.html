@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checklist Harian NOC</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=8">
+</head>
+<body>
+  <section id="login-view" hidden>
+    <form id="login-form" class="card login">
+      <h1>Checklist Harian NOC</h1>
+      <label>Username <input id="username" autocomplete="username" required></label>
+      <label>Password <input id="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary">Masuk</button>
+      <p id="login-err" class="err"></p>
+    </form>
+  </section>
+
+  <section id="app-view" hidden>
+    <header class="top">
+      <h1>Checklist Harian NOC</h1>
+      <div><span id="user"></span> <button id="logout" class="ghost">Keluar</button></div>
+    </header>
+    <nav class="tabs">
+      <button data-tab="checklist" class="active">Checklist</button>
+      <button data-tab="export">Rekap &amp; unduh</button>
+      <button data-tab="users" id="tab-users-btn" hidden>Setting</button>
+    </nav>
+
+    <main id="tab-checklist" class="tab">
+      <div class="bar">
+        <label>Tanggal <input type="date" id="tanggal"></label>
+        <label>Shift
+          <select id="shift"><option>Pagi</option><option>Siang</option><option>Malam</option></select>
+        </label>
+        <div class="prog">
+          <div class="prog-top"><span id="prog-text"></span><span id="summary"></span></div>
+          <div class="track"><i id="prog-bar"></i></div>
+        </div>
+      </div>
+      <div id="list"></div>
+      <div class="savebar"><span id="saved-info" class="meta"></span><span id="dirty"></span><span id="msg"></span></div>
+    </main>
+
+    <main id="tab-export" class="tab" hidden>
+      <div class="card">
+        <h2>Rekap periode</h2>
+        <div class="bar">
+          <label>Dari <input type="date" id="from"></label>
+          <label>Sampai <input type="date" id="to"></label>
+          <button id="this-month" class="ghost">Bulan ini</button>
+          <button id="show-rpt" class="primary">Tampilkan</button>
+        </div>
+        <div class="bar">
+          <label class="chk"><input type="checkbox" id="only-bad"> Hanya Warning / Down</label>
+          <button id="dl-csv">Unduh CSV</button>
+          <label class="chk"><input type="checkbox" id="inc-foto" checked> Sertakan foto di Excel</label>
+          <button id="dl-xlsx">Unduh Excel (.xlsx)</button>
+          <button id="print-rpt">Cetak / PDF</button>
+        </div>
+      </div>
+      <div id="rpt" class="rpt"></div>
+    </main>
+
+    <main id="tab-users" class="tab" hidden>
+      <h2 class="sec">Pengguna</h2>
+      <div class="card">
+        <h2 id="u-title">Tambah pengguna</h2>
+        <div class="bar">
+          <label>Username <input id="u-username" autocomplete="off"></label>
+          <label>Nama <input id="u-nama"></label>
+          <label>Password <input id="u-pass" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter"></label>
+          <label>Peran
+            <select id="u-role"><option value="petugas">Petugas</option><option value="admin">Admin</option></select>
+          </label>
+          <label class="chk"><input type="checkbox" id="u-aktif" checked> Aktif</label>
+        </div>
+        <div class="bar"><button id="u-save" class="primary">Simpan pengguna</button><button id="u-reset" class="ghost">Batal</button><span id="u-msg"></span></div>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Username</th><th>Nama</th><th>Peran</th><th>Status</th><th></th></tr></thead>
+          <tbody id="u-rows"></tbody>
+        </table>
+      </div>
+      <h2 class="sec">Item checklist</h2>
+      <div class="card">
+        <h2 id="i-title">Tambah item checklist</h2>
+        <div class="bar">
+          <label class="grow">Nama item <input id="i-nama" maxlength="255"></label>
+          <label>Prioritas
+            <select id="i-pri"><option value="P1">P1 – Kritis</option><option value="P2">P2 – Tinggi</option><option value="P3">P3 – Menengah</option><option value="P4">P4 – Rutin</option><option value="END">Penutup shift</option></select>
+          </label>
+          <label class="chk"><input type="checkbox" id="i-aktif" checked> Aktif</label>
+        </div>
+        <div class="bar"><button id="i-save" class="primary">Simpan item</button><button id="i-reset" class="ghost">Batal</button><span id="i-msg"></span></div>
+      </div>
+      <div class="scroll" style="margin-top:14px">
+        <table>
+          <thead><tr><th>Prioritas</th><th>Item</th><th>Status</th><th></th></tr></thead>
+          <tbody id="i-rows"></tbody>
+        </table>
+      </div>
+    </main>
+  </section>
+  <script src="assets/js/app.js?v=8"></script>
+</body>
+</html>
