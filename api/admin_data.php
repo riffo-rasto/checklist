@@ -2,6 +2,7 @@
 // Khusus admin:
 //  - clear_checklist : kosongkan checklist (mulai putaran baru). Data yang sudah tersimpan TETAP ada di rekap.
 //  - delete_session  : HAPUS rekap satu sesi secara permanen, termasuk foto (baris database + file)
+
 require __DIR__ . '/config.php';
 require __DIR__ . '/lib_session.php';
 need_admin();

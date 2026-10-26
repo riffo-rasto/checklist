@@ -3,7 +3,7 @@
 require __DIR__ . '/config.php';
 require __DIR__ . '/lib_session.php';
 need_login();
-const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // di luar web root, hanya bisa dibuka lewat file ini
+const EVIDENCE_DIR = 'DIREKTORI_EVIDENCE';   // di luar web root, hanya bisa dibuka lewat file ini
 $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
 // Item yang sudah disimpan (punya status) terkunci: foto tidak bisa ditambah/dihapus, kecuali oleh admin
