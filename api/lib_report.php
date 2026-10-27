@@ -12,12 +12,12 @@ function build_report(string $from, string $to, string $shift = '', string $pet 
     $rows = [];
     if ($out) {
         $in = implode(',', array_map('intval', array_keys($out)));   // id dari database sendiri
-        $q = db()->query("SELECT e.session_id, i.id AS item_id, i.urutan, i.nama_item, e.status, e.catatan,
+        $q = db()->query("SELECT e.id AS entry_id, e.session_id, i.id AS item_id, i.urutan, i.nama_item, e.status, e.catatan,
                 TIME_FORMAT(e.jam_cek, '%H:%i') AS jam, u.nama AS petugas
             FROM checklist_entries e JOIN checklist_items i ON i.id = e.item_id LEFT JOIN users u ON u.id = e.user_id
             WHERE e.session_id IN ($in) AND e.status IS NOT NULL");
         foreach ($q as $r)
-            $rows[$r['session_id']][$r['item_id']] = ['u' => (int)$r['urutan'], 'item' => $r['nama_item'], 'status' => (string)$r['status'],
+            $rows[$r['session_id']][$r['item_id']] = ['eid' => (int)$r['entry_id'], 'u' => (int)$r['urutan'], 'item' => $r['nama_item'], 'status' => (string)$r['status'],
                 'catatan' => (string)$r['catatan'], 'jam' => (string)$r['jam'], 'petugas' => $r['petugas'] ?? $out[$r['session_id']]['petugas'],
                 'ev' => [], 'upd' => []];
 

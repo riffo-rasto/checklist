@@ -479,15 +479,6 @@ function renderRpt() {
     const c = document.createElement('span'); c.className = 'meta';
     c.textContent = `OK ${cnt.OK} · Warning ${cnt.Warning} · Down ${cnt.Down} · N/A ${cnt['N/A']} · 📷 ${nf} foto`;
     const right = document.createElement('span'); right.className = 'hr'; right.append(c);
-    if (isAdmin) {   // admin: hapus rekap sesi ini beserta fotonya
-      const del = document.createElement('button'); del.type = 'button'; del.className = 'ghost small danger'; del.textContent = 'Hapus';
-      del.onclick = async () => {
-        if (!confirm(`HAPUS rekap ${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''}?\nSemua item dan foto pada sesi ini dihapus permanen dan tidak bisa dikembalikan.`)) return;
-        try { await api('admin_data.php', 'POST', {action: 'delete_session', id: s.id}); preview(); }
-        catch (e) { alert(e.message); }
-      };
-      right.append(del);
-    }
     h.append(t, right); g.append(h);
     s.rows.forEach(r => {
       const row = document.createElement('div'); row.className = 'rrow'; row.dataset.st = r.status;
@@ -501,7 +492,20 @@ function renderRpt() {
         const done = r.upd.some(u => u.selesai), c2 = document.createElement('span');
         c2.className = 'chip ' + (done ? 'ok' : 'warn'); c2.textContent = done ? '✔ Selesai' : '⏳ Proses'; ev.prepend(c2);
       }
-      row.append(n, st, ct, ev); g.append(row);
+      row.append(n, st, ct);
+      if (isAdmin) {   // admin: hapus SATU item ini dari rekap (beserta foto dan update-nya)
+        row.classList.add('adm');
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'ghost small danger'; del.textContent = 'Hapus';
+        del.title = 'Hapus item ini dari rekap';
+        del.onclick = async () => {
+          const nu = (r.upd || []).length, fo = r.ev.length + (r.upd || []).reduce((k, u) => k + u.ev.length, 0);
+          if (!confirm(`HAPUS item ini dari rekap?\n\n${r.item}\n${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''}\n\nIkut terhapus: ${fo} foto dan ${nu} update. Tidak bisa dikembalikan.`)) return;
+          try { await api('admin_data.php', 'POST', {action: 'delete_entry', id: r.eid}); preview(); }
+          catch (e) { alert(e.message); }
+        };
+        row.append(del);
+      }
+      row.append(ev); g.append(row);
       (r.upd || []).forEach(u => {   // update tindak lanjut tepat di bawah itemnya
         const ur = document.createElement('div'); ur.className = 'urow';
         const hd = document.createElement('div'); hd.className = 'meta'; hd.textContent = `↳ Update ${u.waktu} · ${u.petugas}${u.selesai ? ' · ✔ Masalah selesai' : ''}`;

@@ -17,7 +17,7 @@ Aplikasi web untuk mengisi checklist harian NOC per **tanggal dan shift**, lengk
 - Kelola pengguna: tambah, ubah nama dan peran, reset password, nonaktifkan, hapus.
 - Kelola item checklist: tambah, ubah, atur urutan (▲ ▼), nonaktifkan, hapus.
 - Tombol **Ubah** pada item terkunci, dan **Clear checklist ini** untuk mengosongkan checklist tanpa menunggu ganti hari. Clear **tidak menghapus** apa pun: data yang sudah tersimpan tetap ada di rekap (sebagai "Putaran 1"), dan checklist dibuka kembali kosong sebagai putaran berikutnya.
-- Tombol **Hapus** di rekap untuk membuang data satu tanggal dan shift (satu putaran) beserta fotonya. Ini satu-satunya aksi yang menghapus data rekap.
+- Tombol **Hapus** di tiap item pada rekap untuk membuang **satu item** beserta foto dan update-nya (jadi salah isi satu item tidak perlu menghapus seluruh sesi). Jika item itu ada di checklist yang sedang dibuka, item tersebut kembali kosong dan bisa diisi ulang. Ini satu-satunya aksi yang menghapus data rekap.
 
 | Aksi | Petugas | Admin |
 |---|:---:|:---:|
@@ -150,7 +150,7 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 | `export.php` | GET | login | Unduh `format=csv` atau `xlsx` (`foto=1/0`) |
 | `users.php` | GET / POST | admin | Daftar, tambah, ubah, hapus pengguna |
 | `items.php` | GET / POST | admin | Daftar, tambah, ubah, urutkan, hapus item |
-| `admin_data.php` | POST | admin | `clear_checklist`, `delete_session` |
+| `admin_data.php` | POST | admin | `clear_checklist`, `delete_entry`, `delete_session` |
 
 ## Tabel database
 

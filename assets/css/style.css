@@ -100,3 +100,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .uform{display:grid;gap:8px;max-width:680px;padding:10px;background:#fff;border:1px solid var(--line);border-radius:6px}
 textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:4px;color:var(--ink);resize:vertical}
 .urow{display:grid;gap:6px;padding:8px 12px 10px 36px;background:#fafbfc;border-top:1px dashed var(--line)}
+
+.rrow.adm{grid-template-columns:minmax(220px,1fr) 90px minmax(160px,1fr) 70px}
+@media print{.rrow button{display:none!important}}

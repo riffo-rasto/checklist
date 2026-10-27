@@ -43,6 +43,18 @@ if ($act === 'clear_checklist') {
     out(['ok' => true, 'message' => 'Checklist dikosongkan']);
 }
 
+if ($act === 'delete_entry') {   // hapus SATU item dari rekap: foto (file + baris), update, dan entrinya
+    $id = (int)($b['id'] ?? 0);
+    $q = db()->prepare('SELECT session_id, item_id FROM checklist_entries WHERE id = ?');
+    $q->execute([$id]);
+    $e = $q->fetch();
+    if (!$e) out(['ok' => true, 'message' => 'Item sudah tidak ada']);
+    $q = db()->prepare('SELECT id, file FROM evidence WHERE session_id = ? AND item_id = ?');   // foto biasa + foto milik update item ini
+    $q->execute([$e['session_id'], $e['item_id']]);
+    $n = drop_evidence($q->fetchAll());
+    db()->prepare('DELETE FROM checklist_entries WHERE id = ?')->execute([$id]);   // update ikut terhapus (CASCADE)
+    out(['ok' => true, 'message' => "Item dihapus ($n foto ikut dihapus)"]);
+}
 if ($act === 'delete_session') {
     $id = (int)($b['id'] ?? 0);
     $q = db()->prepare('SELECT id, file FROM evidence WHERE session_id = ?');
