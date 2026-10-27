@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           status = VALUES(status), catatan = VALUES(catatan), jam_cek = VALUES(jam_cek)');
     $del = $pdo->prepare('DELETE FROM checklist_entries WHERE session_id = ? AND item_id = ?');
     $chk = $pdo->prepare('SELECT status FROM checklist_entries WHERE session_id = ? AND item_id = ?');
+    $ids = [];   // id entri yang tersimpan (dipakai tombol Update)
     foreach ($b['entries'] ?? [] as $e) {
         $chk->execute([$sid, (int)($e['item_id'] ?? 0)]);
         if ($chk->fetchColumn() && ($_SESSION['role'] ?? '') !== 'admin') {   // item yang sudah tersimpan terkunci (kecuali admin)
@@ -40,14 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($st === null && $ct === '' && $jam === null) { $del->execute([$sid, (int)$e['item_id']]); continue; }   // item dikosongkan
         // user_id & diisi_pada hanya berubah kalau isi item berubah (lihat IF(...) di query)
         $ins->execute([$sid, (int)$e['item_id'], $st, $ct, $jam, $_SESSION['uid'], date('Y-m-d H:i:s')]);
+        $chk2 = $pdo->prepare('SELECT id FROM checklist_entries WHERE session_id = ? AND item_id = ?');
+        $chk2->execute([$sid, (int)$e['item_id']]);
+        $ids[(int)$e['item_id']] = (int)$chk2->fetchColumn();
     }
     $pdo->commit();
-    out(['ok' => true]);
+    out(['ok' => true, 'ids' => (object)$ids]);
 }
 
 $tgl = $_GET['tanggal'] ?? date('Y-m-d');
 $sh = $_GET['shift'] ?? 'Pagi';
-$s = db()->prepare("SELECT i.id, i.nama_item, i.prioritas, e.status, e.catatan, TIME_FORMAT(e.jam_cek, '%H:%i') AS jam_cek,
+$s = db()->prepare("SELECT i.id, e.id AS entry_id, i.nama_item, i.prioritas, e.status, e.catatan, TIME_FORMAT(e.jam_cek, '%H:%i') AS jam_cek,
         u.nama AS petugas, DATE_FORMAT(e.diisi_pada, '%d/%m %H:%i') AS diisi_pada
     FROM checklist_items i
     LEFT JOIN checklist_sessions s ON s.tanggal = ? AND s.shift = ? AND s.putaran = (SELECT MAX(x.putaran) FROM checklist_sessions x WHERE x.tanggal = ? AND x.shift = ?)
@@ -56,8 +60,25 @@ $s = db()->prepare("SELECT i.id, i.nama_item, i.prioritas, e.status, e.catatan, 
     WHERE i.aktif = 1 ORDER BY i.urutan");
 $s->execute([$tgl, $sh, $tgl, $sh]);
 $items = $s->fetchAll();
-$ev = db()->prepare('SELECT v.item_id, v.id FROM evidence v WHERE v.session_id = ? ORDER BY v.id');
-$ev->execute([current_session($tgl, $sh, (int)$_SESSION['uid'], false)]);
-$map = [];
-foreach ($ev as $r) $map[$r['item_id']][] = (int)$r['id'];
-out(['items' => $items, 'evidence' => (object)$map]);
+$sid = current_session($tgl, $sh, (int)$_SESSION['uid'], false);
+$map = []; $updmap = [];
+if ($sid) {
+    $ev = db()->prepare('SELECT item_id, id FROM evidence WHERE session_id = ? AND update_id IS NULL ORDER BY id');
+    $ev->execute([$sid]);
+    foreach ($ev as $r) $map[$r['item_id']][] = (int)$r['id'];
+    // update tindak lanjut (item Warning / Down) beserta foto-fotonya
+    $uq = db()->prepare("SELECT u.id, u.entry_id, u.tindakan, u.selesai, DATE_FORMAT(u.created_at, '%d/%m %H:%i') AS waktu, us.nama AS petugas
+        FROM checklist_updates u JOIN checklist_entries e ON e.id = u.entry_id JOIN users us ON us.id = u.user_id
+        WHERE e.session_id = ? ORDER BY u.id");
+    $uq->execute([$sid]);
+    $pos = [];
+    foreach ($uq as $u) {
+        $updmap[$u['entry_id']][] = ['id' => (int)$u['id'], 'tindakan' => $u['tindakan'], 'selesai' => (bool)$u['selesai'],
+            'waktu' => $u['waktu'], 'petugas' => $u['petugas'], 'ev' => []];
+        $pos[(int)$u['id']] = [$u['entry_id'], count($updmap[$u['entry_id']]) - 1];
+    }
+    $ue = db()->prepare('SELECT id, update_id FROM evidence WHERE session_id = ? AND update_id IS NOT NULL ORDER BY id');
+    $ue->execute([$sid]);
+    foreach ($ue as $r) if (isset($pos[(int)$r['update_id']])) { [$en, $ix] = $pos[(int)$r['update_id']]; $updmap[$en][$ix]['ev'][] = (int)$r['id']; }
+}
+out(['items' => $items, 'evidence' => (object)$map, 'updates' => (object)$updmap]);

@@ -5,28 +5,27 @@ Aplikasi web untuk mengisi checklist harian NOC per **tanggal dan shift**, lengk
 ## Fitur
 
 **Petugas**
-
 - Login per user, jadi tiap item tercatat siapa yang mengisi dan kapan.
 - Status per item: **OK / Warning / Down / N/A**. Jam cek terisi otomatis saat status diklik dan tidak bisa diketik.
 - Status Warning / Down wajib diberi catatan atau nomor tiket.
 - Tombol **Simpan** di tiap item. Setelah disimpan, item **terkunci** (abu-abu, tanda "Selesai") dan tidak bisa diubah. Checklist hari atau shift berikutnya otomatis kosong lagi.
 - Foto evidence maksimal 5 per item. Foto dikecilkan otomatis di browser (maks. 1280 px). Foto hanya bisa ditambah atau dihapus **sebelum** item disimpan.
+- Item **Warning / Down** yang sudah disimpan punya tombol **+ Update** untuk mencatat **tindakan / penyelesaian** dan foto setelah penanganan. Bisa beberapa kali (riwayat update), dengan opsi "Masalah sudah selesai". Status dan catatan asli tidak berubah.
 - Rekap: pilih periode, klik **Tampilkan** untuk melihat data lengkap dengan thumbnail foto (klik untuk memperbesar), filter "Hanya Warning / Down", lalu unduh **CSV**, **Excel**, atau **Cetak / PDF**. Rekap hanya memuat item yang sudah **disimpan**; foto dari item yang belum disimpan tidak ikut.
 
 **Admin** (tab **Setting** dan tombol tambahan)
-
 - Kelola pengguna: tambah, ubah nama dan peran, reset password, nonaktifkan, hapus.
 - Kelola item checklist: tambah, ubah, atur urutan (▲ ▼), nonaktifkan, hapus.
 - Tombol **Ubah** pada item terkunci, dan **Clear checklist ini** untuk mengosongkan checklist tanpa menunggu ganti hari. Clear **tidak menghapus** apa pun: data yang sudah tersimpan tetap ada di rekap (sebagai "Putaran 1"), dan checklist dibuka kembali kosong sebagai putaran berikutnya.
 - Tombol **Hapus** di rekap untuk membuang data satu tanggal dan shift (satu putaran) beserta fotonya. Ini satu-satunya aksi yang menghapus data rekap.
 
-| Aksi                                          | Petugas | Admin |
-| --------------------------------------------- | :-----: | :---: |
-| Isi, simpan, dan upload foto sebelum disimpan |   ✔   |  ✔  |
-| Ubah item yang sudah tersimpan                |   ✘   |  ✔  |
-| Lihat rekap dan unduh                         |   ✔   |  ✔  |
-| Clear checklist, hapus rekap                  |   ✘   |  ✔  |
-| Setting pengguna dan item                     |   ✘   |  ✔  |
+| Aksi | Petugas | Admin |
+|---|:---:|:---:|
+| Isi, simpan, dan upload foto sebelum disimpan | ✔ | ✔ |
+| Ubah item yang sudah tersimpan | ✘ | ✔ |
+| Lihat rekap dan unduh | ✔ | ✔ |
+| Clear checklist, hapus rekap | ✘ | ✔ |
+| Setting pengguna dan item | ✘ | ✔ |
 
 ## Kebutuhan
 
@@ -53,6 +52,7 @@ noc-checklist/
 │   ├── auth.php            login, logout, cek sesi
 │   ├── checklist.php       ambil dan simpan checklist (aturan kunci item ada di sini)
 │   ├── evidence.php        lihat, upload, hapus foto
+│   ├── updates.php         update tindak lanjut item Warning/Down (tindakan + foto)
 │   ├── users.php           CRUD pengguna (admin)
 │   ├── items.php           CRUD item checklist (admin)
 │   ├── report.php          data rekap untuk tampilan web (JSON)
@@ -64,55 +64,42 @@ noc-checklist/
 │   └── create_user.php     buat user lewat terminal
 ├── database.sql            instalasi baru (tabel + 21 item contoh)
 ├── upgrade_v4.sql          menambah tabel evidence ke database lama
-└── upgrade_v5.sql          menambah kolom putaran (fitur Clear tanpa menghapus data)
+├── upgrade_v5.sql          menambah kolom putaran (fitur Clear tanpa menghapus data)
+└── upgrade_v6.sql          tabel checklist_updates + kolom evidence.update_id (fitur Update)
 ```
 
 ## Instalasi
 
-### 1.  Setting Database ( Buat User )
+### 1. Database
 
 ```sql
 CREATE DATABASE noc_checklist CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'ISI_NAMA_USER'@'localhost' IDENTIFIED BY 'PasswordKuat';
-GRANT ALL PRIVILEGES ON DB_KAMU.* TO 'ISI_NAMA_USER'@'localhost';
+CREATE USER 'noc_user'@'localhost' IDENTIFIED BY 'PasswordKuat';
+GRANT ALL PRIVILEGES ON noc_checklist.* TO 'noc_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-Export database.sql ke dalam
+```bash
+mysql -u noc_user -p noc_checklist < database.sql
+```
+
+> `database.sql` hanya untuk instalasi **baru**. Untuk database yang sudah berjalan, jangan di-import ulang.
+
+### 2. Salin file dan isi kredensial
 
 ```bash
-mysql -u ISI_NAMA_USER -p DB_KAMU < database.sql
+sudo rsync -a --exclude '*.sql' noc-checklist/ /var/www/html/
+sudo nano /var/www/html/api/config.php     # isi DB_NAME, DB_USER, DB_PASS
 ```
-
-> Note : `database.sql` hanya untuk instalasi **baru**. Untuk database yang sudah berjalan, jangan di-import ulang.
-
-### 2. Salin file
-
-```bash
-sudo rsync -a --exclude '*.sql' DB_KAMU/ /var/www/html/
-```
-
-#### Set Kredensial
-
-```Shell
-sudo nano /var/www/html/api/config.php
-```
-
-```SQL
-// Sesuaikan kredensial database (buat user MySQL khusus, jangan pakai root)
-const DB_HOST = 'localhost', DB_NAME = 'ISI_NAMA_DATABASE', DB_USER = 'ISI_NAMA_USER', DB_PASS = 'GANTI_PASSWORD';
-```
-
-isi DB_NAME, DB_USER, DB_PASS
 
 ### 3. Folder penyimpanan foto
 
 Folder ini sengaja **di luar web root** supaya foto hanya bisa dibuka lewat `api/evidence.php` setelah login:
 
 ```bash
-sudo mkdir -p /var/www/DIREKTORI_EVIDENCE
-sudo chown -R www-data:www-data /var/www/DIREKTORI_EVIDENCE
-sudo chmod -R 750 /var/www/DIREKTORI_EVIDENCE
+sudo mkdir -p /var/www/noc-storage/evidence
+sudo chown -R www-data:www-data /var/www/noc-storage
+sudo chmod -R 750 /var/www/noc-storage
 ```
 
 Jika lokasinya diubah, sesuaikan konstanta `EVIDENCE_DIR` di `evidence.php`, `export.php`, dan `admin_data.php`.
@@ -131,13 +118,13 @@ Akses `http://alamat-server/`, lalu login.
 
 ## Pengaturan yang bisa disesuaikan
 
-| Yang diubah                                                                   | Lokasi                                             |
-| ----------------------------------------------------------------------------- | -------------------------------------------------- |
-| Kredensial database                                                           | `api/config.php` (`DB_*`)                      |
-| Zona waktu                                                                    | `api/config.php` (`date_default_timezone_set`) |
-| Shift otomatis saat halaman dibuka (Pagi 07–15, Siang 15–23, Malam sisanya) | `assets/js/app.js`, bagian akhir file            |
-| Maksimal foto per item (5)                                                    | `api/evidence.php` dan `app.js`                |
-| Daftar item checklist                                                         | Tab **Setting** (admin)                      |
+| Yang diubah | Lokasi |
+|---|---|
+| Kredensial database | `api/config.php` (`DB_*`) |
+| Zona waktu | `api/config.php` (`date_default_timezone_set`) |
+| Shift otomatis saat halaman dibuka (Pagi 07–15, Siang 15–23, Malam sisanya) | `assets/js/app.js`, bagian akhir file |
+| Maksimal foto per item (5) | `api/evidence.php` dan `app.js` |
+| Daftar item checklist | Tab **Setting** (admin) |
 
 ## Memperbarui aplikasi
 
@@ -147,32 +134,34 @@ sudo rsync -a --exclude 'api/config.php' --exclude '*.sql' noc-checklist/ /var/w
 
 `config.php` dikecualikan supaya kredensial tidak tertimpa. Setelah mengubah `app.js` atau `style.css`, **naikkan nomor `?v=`** di `index.html` (dua baris) lalu tekan Ctrl+F5, supaya browser mengambil file baru, bukan cache lama.
 
-Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya.
+Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya. Untuk fitur Update, jalankan juga `upgrade_v6.sql` sekali.
 
 ## Referensi API
 
 Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perubahan data (POST) wajib membawa header `X-CSRF-Token`.
 
-| Endpoint           | Metode     | Akses  | Fungsi                                                |
-| ------------------ | ---------- | ------ | ----------------------------------------------------- |
-| `auth.php`       | GET / POST | publik | Cek sesi, `?action=login`, `?action=logout`       |
-| `checklist.php`  | GET / POST | login  | Ambil checklist (`tanggal`, `shift`), simpan item |
-| `evidence.php`   | GET / POST | login  | Lihat (`?id=`), upload, hapus foto                  |
-| `report.php`     | GET        | login  | Data rekap periode (`from`, `to`)                 |
-| `export.php`     | GET        | login  | Unduh `format=csv` atau `xlsx` (`foto=1/0`)     |
-| `users.php`      | GET / POST | admin  | Daftar, tambah, ubah, hapus pengguna                  |
-| `items.php`      | GET / POST | admin  | Daftar, tambah, ubah, urutkan, hapus item             |
-| `admin_data.php` | POST       | admin  | `clear_checklist`, `delete_session`               |
+| Endpoint | Metode | Akses | Fungsi |
+|---|---|---|---|
+| `auth.php` | GET / POST | publik | Cek sesi, `?action=login`, `?action=logout` |
+| `checklist.php` | GET / POST | login | Ambil checklist (`tanggal`, `shift`), simpan item |
+| `evidence.php` | GET / POST | login | Lihat (`?id=`), upload, hapus foto |
+| `updates.php` | POST | login (hapus: admin) | Tambah update tindak lanjut (tindakan + foto), hapus update |
+| `report.php` | GET | login | Data rekap periode (`from`, `to`) |
+| `export.php` | GET | login | Unduh `format=csv` atau `xlsx` (`foto=1/0`) |
+| `users.php` | GET / POST | admin | Daftar, tambah, ubah, hapus pengguna |
+| `items.php` | GET / POST | admin | Daftar, tambah, ubah, urutkan, hapus item |
+| `admin_data.php` | POST | admin | `clear_checklist`, `delete_session` |
 
 ## Tabel database
 
-| Tabel                  | Isi                                                                         |
-| ---------------------- | --------------------------------------------------------------------------- |
-| `users`              | akun, peran (`admin` / `petugas`), status aktif                         |
-| `checklist_items`    | daftar item, prioritas (P1–P4, END), urutan, aktif                         |
+| Tabel | Isi |
+|---|---|
+| `users` | akun, peran (`admin` / `petugas`), status aktif |
+| `checklist_items` | daftar item, prioritas (P1–P4, END), urutan, aktif |
 | `checklist_sessions` | satu baris per tanggal + shift + putaran (Clear admin membuka putaran baru) |
-| `checklist_entries`  | status, catatan, jam, petugas, dan waktu isi tiap item                      |
-| `evidence`           | foto per item per sesi (file disimpan di folder storage)                    |
+| `checklist_entries` | status, catatan, jam, petugas, dan waktu isi tiap item |
+| `evidence` | foto per item per sesi (file disimpan di folder storage); `update_id` terisi untuk foto milik sebuah update |
+| `checklist_updates` | update tindak lanjut per item Warning / Down: tindakan, status selesai, petugas, waktu |
 
 Pengguna atau item yang sudah punya riwayat **tidak dihapus** saat tombol Hapus ditekan, hanya dinonaktifkan, supaya riwayat checklist tetap utuh.
 
@@ -189,20 +178,20 @@ Pengguna atau item yang sudah punya riwayat **tidak dihapus** saat tombol Hapus 
 
 ```bash
 mysqldump -u noc_user -p noc_checklist > backup_noc.sql
-sudo tar czf backup_foto.tar.gz /var/www/DIREKTORI_EVIDENCE
+sudo tar czf backup_foto.tar.gz /var/www/noc-storage
 ```
 
 Database dan folder foto harus ikut dibackup bersama, karena rekap menunjuk ke file foto.
 
 ## Pemecahan masalah
 
-| Gejala                                                     | Penyebab dan solusi                                                                                       |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Browser menampilkan kode PHP mentah                        | PHP belum aktif di web server. Pasang `libapache2-mod-php`, lalu restart Apache.                        |
-| "Respon server bukan JSON" atau layar kosong setelah login | Lihat `sudo tail /var/log/apache2/error.log`. Biasanya kredensial database di `config.php` salah.     |
-| Setelah refresh kembali ke halaman login                   | Cache browser atau sesi PHP tidak tersimpan. Coba Incognito, dan cek izin folder sesi PHP.                |
-| Perubahan JS / CSS tidak terlihat                          | Cache browser. Naikkan `?v=` di `index.html`, lalu Ctrl+F5.                                           |
-| "Gagal menyimpan file" saat upload foto                    | Izin folder foto. Jalankan `sudo -u www-data touch /var/www/noc-storage/evidence/tes` untuk mengujinya. |
-| Foto tidak muncul di Excel, atau file Excel sangat besar   | Pasang `php-gd`, lalu restart Apache.                                                                   |
-| "Item ini sudah disimpan dan terkunci"                     | Perilaku yang disengaja. Admin bisa membuka kunci lewat tombol **Ubah** atau **Clear**.       |
-| CSV terbuka dalam satu kolom di Excel                      | Gunakan file hasil unduhan terbaru (pemisah titik koma + baris `sep=;`).                                |
+| Gejala | Penyebab dan solusi |
+|---|---|
+| Browser menampilkan kode PHP mentah | PHP belum aktif di web server. Pasang `libapache2-mod-php`, lalu restart Apache. |
+| "Respon server bukan JSON" atau layar kosong setelah login | Lihat `sudo tail /var/log/apache2/error.log`. Biasanya kredensial database di `config.php` salah. |
+| Setelah refresh kembali ke halaman login | Cache browser atau sesi PHP tidak tersimpan. Coba Incognito, dan cek izin folder sesi PHP. |
+| Perubahan JS / CSS tidak terlihat | Cache browser. Naikkan `?v=` di `index.html`, lalu Ctrl+F5. |
+| "Gagal menyimpan file" saat upload foto | Izin folder foto. Jalankan `sudo -u www-data touch /var/www/noc-storage/evidence/tes` untuk mengujinya. |
+| Foto tidak muncul di Excel, atau file Excel sangat besar | Pasang `php-gd`, lalu restart Apache. |
+| "Item ini sudah disimpan dan terkunci" | Perilaku yang disengaja. Admin bisa membuka kunci lewat tombol **Ubah** atau **Clear**. |
+| CSV terbuka dalam satu kolom di Excel | Gunakan file hasil unduhan terbaru (pemisah titik koma + baris `sep=;`). |

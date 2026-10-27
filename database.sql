@@ -45,6 +45,16 @@ CREATE TABLE checklist_entries (
 );
 
 -- Evidence (gambar) per item per sesi checklist
+CREATE TABLE IF NOT EXISTS checklist_updates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  entry_id INT NOT NULL,
+  user_id INT NOT NULL,
+  tindakan TEXT NOT NULL,
+  selesai TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  FOREIGN KEY (entry_id) REFERENCES checklist_entries(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
 CREATE TABLE IF NOT EXISTS evidence (
   id INT AUTO_INCREMENT PRIMARY KEY,
   session_id INT NOT NULL,
@@ -52,9 +62,11 @@ CREATE TABLE IF NOT EXISTS evidence (
   file VARCHAR(64) NOT NULL,
   mime VARCHAR(30) NOT NULL,
   user_id INT NULL,
+  update_id INT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (session_id) REFERENCES checklist_sessions(id) ON DELETE CASCADE,
-  FOREIGN KEY (item_id) REFERENCES checklist_items(id)
+  FOREIGN KEY (item_id) REFERENCES checklist_items(id),
+  FOREIGN KEY (update_id) REFERENCES checklist_updates(id) ON DELETE CASCADE
 );
 
 INSERT INTO checklist_items (prioritas, urutan, nama_item) VALUES

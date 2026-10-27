@@ -1,6 +1,7 @@
 <?php
 // Data rekap bersama (dipakai tampilan web dan export Excel): per tanggal + shift (+ putaran).
 // Hanya item yang sudah DISIMPAN (punya status) yang masuk rekap; foto ikut hanya kalau itemnya sudah disimpan.
+// Setiap item Warning/Down membawa daftar update tindak lanjutnya ('upd').
 function build_report(string $from, string $to): array {
     $ss = db()->prepare("SELECT s.id, s.tanggal, s.shift, s.putaran, u.nama AS petugas FROM checklist_sessions s JOIN users u ON u.id = s.user_id
         WHERE s.tanggal BETWEEN ? AND ? ORDER BY s.tanggal, FIELD(s.shift, 'Pagi', 'Siang', 'Malam'), s.putaran");
@@ -17,9 +18,27 @@ function build_report(string $from, string $to): array {
             WHERE e.session_id IN ($in) AND e.status IS NOT NULL");
         foreach ($q as $r)
             $rows[$r['session_id']][$r['item_id']] = ['u' => (int)$r['urutan'], 'item' => $r['nama_item'], 'status' => (string)$r['status'],
-                'catatan' => (string)$r['catatan'], 'jam' => (string)$r['jam'], 'petugas' => $r['petugas'] ?? $out[$r['session_id']]['petugas'], 'ev' => []];
-        foreach (db()->query("SELECT id, session_id, item_id FROM evidence WHERE session_id IN ($in) ORDER BY id") as $r)
-            if (isset($rows[$r['session_id']][$r['item_id']])) $rows[$r['session_id']][$r['item_id']]['ev'][] = (int)$r['id'];
+                'catatan' => (string)$r['catatan'], 'jam' => (string)$r['jam'], 'petugas' => $r['petugas'] ?? $out[$r['session_id']]['petugas'],
+                'ev' => [], 'upd' => []];
+
+        $umap = [];   // id update -> [sesi, item, indeks]
+        $uq = db()->query("SELECT u.id, e.session_id, e.item_id, u.tindakan, u.selesai, DATE_FORMAT(u.created_at, '%d/%m %H:%i') AS waktu, us.nama AS petugas
+            FROM checklist_updates u JOIN checklist_entries e ON e.id = u.entry_id JOIN users us ON us.id = u.user_id
+            WHERE e.session_id IN ($in) ORDER BY u.id");
+        foreach ($uq as $u) {
+            if (!isset($rows[$u['session_id']][$u['item_id']])) continue;
+            $rows[$u['session_id']][$u['item_id']]['upd'][] = ['id' => (int)$u['id'], 'tindakan' => $u['tindakan'], 'selesai' => (bool)$u['selesai'],
+                'waktu' => $u['waktu'], 'petugas' => $u['petugas'], 'ev' => []];
+            $umap[(int)$u['id']] = [$u['session_id'], $u['item_id'], count($rows[$u['session_id']][$u['item_id']]['upd']) - 1];
+        }
+        foreach (db()->query("SELECT id, session_id, item_id, update_id FROM evidence WHERE session_id IN ($in) ORDER BY id") as $r) {
+            if ($r['update_id'] === null) {   // foto biasa: hanya untuk item yang sudah disimpan
+                if (isset($rows[$r['session_id']][$r['item_id']])) $rows[$r['session_id']][$r['item_id']]['ev'][] = (int)$r['id'];
+            } elseif (isset($umap[(int)$r['update_id']])) {   // foto milik sebuah update
+                [$sa, $ia, $xa] = $umap[(int)$r['update_id']];
+                $rows[$sa][$ia]['upd'][$xa]['ev'][] = (int)$r['id'];
+            }
+        }
     }
     $res = [];
     foreach ($out as $sid => $s) {

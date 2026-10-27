@@ -2,7 +2,6 @@
 // Khusus admin:
 //  - clear_checklist : kosongkan checklist (mulai putaran baru). Data yang sudah tersimpan TETAP ada di rekap.
 //  - delete_session  : HAPUS rekap satu sesi secara permanen, termasuk foto (baris database + file)
-
 require __DIR__ . '/config.php';
 require __DIR__ . '/lib_session.php';
 need_admin();
@@ -29,7 +28,7 @@ if ($act === 'clear_checklist') {
     if (!$sid) out(['ok' => true, 'message' => 'Checklist sudah kosong']);
 
     // foto dari item yang tidak pernah disimpan tidak termasuk rekap mana pun, jadi dibuang agar tidak tertinggal di server
-    $q = db()->prepare('SELECT v.id, v.file FROM evidence v WHERE v.session_id = ? AND NOT EXISTS
+    $q = db()->prepare('SELECT v.id, v.file FROM evidence v WHERE v.session_id = ? AND v.update_id IS NULL AND NOT EXISTS
         (SELECT 1 FROM checklist_entries e WHERE e.session_id = v.session_id AND e.item_id = v.item_id AND e.status IS NOT NULL)');
     $q->execute([$sid]);
     drop_evidence($q->fetchAll());

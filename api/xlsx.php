@@ -26,7 +26,7 @@ function xlsx_build(array $sheets): string {
     $NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"';
     $RT = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
     $PK = 'http://schemas.openxmlformats.org/package/2006/relationships';
-    $sty = ['OK' => 6, 'Warning' => 7, 'Down' => 8, 'N/A' => 9];   // indeks style di styles.xml di bawah
+    $sty = ['OK' => 6, 'Warning' => 7, 'Down' => 8, 'N/A' => 9, 'Selesai' => 6, 'Proses' => 7, 'Belum' => 8];   // indeks style di styles.xml di bawah
     $tmp = tempnam(sys_get_temp_dir(), 'xl');
     $z = new ZipArchive();
     $z->open($tmp, ZipArchive::OVERWRITE);

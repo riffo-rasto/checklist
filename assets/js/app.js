@@ -33,7 +33,9 @@ function show(u) {
 async function load() {
   try {
     const d = await api(`checklist.php?tanggal=${$('#tanggal').value}&shift=${$('#shift').value}`);
-    items = d.items; evid = d.evidence || {}; render(); msg('');
+    items = d.items; evid = d.evidence || {};
+    const um = d.updates || {}; items.forEach(it => it.updates = um[it.entry_id] || []);
+    render(); msg('');
   } catch (e) { onErr(e); }
 }
 
@@ -63,7 +65,68 @@ function lock(r, on) {   // item tersimpan = terkunci (abu-abu); hanya admin yan
   r.querySelector('.dn').hidden = !on;
   r.querySelector('.unlock').hidden = !(on && isAdmin);
   const ev = r.querySelector('.ev'); ev.dataset.locked = on ? '1' : ''; if (ev.redraw) ev.redraw();
+  refreshUpd(r);
 }
+// ---- Update tindak lanjut untuk item Warning / Down yang sudah tersimpan
+function refreshUpd(r) {
+  const it = items[r.dataset.i], box = r.querySelector('.upd');
+  if (!it || !box) return;
+  const on = r.classList.contains('done') && ['Warning', 'Down'].includes(r.dataset.st) && it.entry_id;
+  box.hidden = !on;
+  if (!on) return;
+  box.replaceChildren();
+  const ups = it.updates || [], last = ups[ups.length - 1];
+  const head = document.createElement('div'); head.className = 'uhead';
+  const chip = document.createElement('span'); chip.className = 'chip ' + (last && last.selesai ? 'ok' : 'warn');
+  chip.textContent = last ? (last.selesai ? '✔ Masalah selesai' : '⏳ Dalam penanganan') : 'Belum ada tindak lanjut';
+  const add = document.createElement('button'); add.type = 'button'; add.className = 'primary small'; add.textContent = '+ Update';
+  head.append(chip, add); box.append(head);
+  ups.forEach(u => {
+    const li = document.createElement('div'); li.className = 'ui';
+    const m = document.createElement('div'); m.className = 'meta'; m.textContent = `${u.waktu} · ${u.petugas}${u.selesai ? ' · ✔ Selesai' : ''}`;
+    const tx = document.createElement('div'); tx.className = 'tx'; tx.textContent = u.tindakan;
+    li.append(m, tx);
+    if (u.ev.length) { const th = document.createElement('div'); th.className = 'ev'; u.ev.forEach(id => th.append(thumbLink(id))); li.append(th); }
+    if (isAdmin) {
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'ghost small danger'; x.textContent = 'Hapus update';
+      x.onclick = async () => {
+        if (!confirm('Hapus update ini beserta fotonya?')) return;
+        try { await api('updates.php', 'POST', {action: 'delete', id: u.id}); it.updates = it.updates.filter(v => v.id !== u.id); refreshUpd(r); } catch (e) { warn(e); }
+      };
+      li.append(x);
+    }
+    box.append(li);
+  });
+  const f = document.createElement('div'); f.className = 'uform'; f.hidden = true;
+  const ta = document.createElement('textarea'); ta.rows = 3; ta.maxLength = 2000; ta.placeholder = 'Tindakan yang dilakukan / hasil penyelesaian';
+  const cl = document.createElement('label'); cl.className = 'chk';
+  const cb = document.createElement('input'); cb.type = 'checkbox'; cl.append(cb, ' Masalah sudah selesai');
+  const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.multiple = true; file.hidden = true;
+  const pick = document.createElement('button'); pick.type = 'button'; pick.className = 'ghost small'; pick.textContent = '📷 Pilih foto (maks. 5)';
+  const cnt = document.createElement('span'); cnt.className = 'chip'; cnt.textContent = 'Belum ada foto';
+  pick.onclick = () => file.click();
+  file.onchange = () => { cnt.textContent = file.files.length ? `${file.files.length} foto dipilih` : 'Belum ada foto'; };
+  const fr = document.createElement('div'); fr.className = 'uhead'; fr.append(pick, cnt, file);
+  const send = document.createElement('button'); send.type = 'button'; send.className = 'primary small'; send.textContent = 'Kirim update';
+  const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ghost small'; cancel.textContent = 'Batal';
+  const fb = document.createElement('div'); fb.className = 'uhead'; fb.append(send, cancel);
+  cancel.onclick = () => { f.hidden = true; };
+  add.onclick = () => { f.hidden = !f.hidden; if (!f.hidden) ta.focus(); };
+  send.onclick = async () => {
+    if (!ta.value.trim()) return alert('Isi kolom tindakan dulu');
+    if (file.files.length > 5) return alert('Maksimal 5 foto per update');
+    send.disabled = true;
+    try {
+      const fd = new FormData();
+      fd.append('entry_id', it.entry_id); fd.append('tindakan', ta.value.trim()); fd.append('selesai', cb.checked ? 1 : 0);
+      for (const fl of file.files) fd.append('files[]', await shrink(fl), 'foto.jpg');
+      const d = await api('updates.php', 'POST', fd);
+      (it.updates = it.updates || []).push(d.update); refreshUpd(r);
+    } catch (e) { send.disabled = false; warn(e); }
+  };
+  f.append(ta, cl, fr, fb); box.append(f);
+}
+
 function clearRow(r) {   // kosongkan satu baris (item yang sudah tersimpan tidak bisa dikosongkan)
   if (r.classList.contains('done')) return;
   r.dataset.st = ''; txt(r).value = ''; tm(r).value = '';
@@ -177,7 +240,8 @@ function makeRow(it, i) {
   const ub = document.createElement('button'); ub.type = 'button'; ub.className = 'ghost small unlock'; ub.textContent = 'Ubah'; ub.title = 'Buka kunci (khusus admin)';
   ub.onclick = () => lock(r, false);
   const rx = document.createElement('div'); rx.className = 'rx'; rx.append(sv, x, dn, ub);
-  r.append(nm, seg, ct, jm, rx, evBox(it)); mark(r);
+  const up = document.createElement('div'); up.className = 'upd'; up.hidden = true;   // tindak lanjut (Warning / Down)
+  r.append(nm, seg, ct, jm, rx, evBox(it), up); mark(r);
   lock(r, !!it.status);   // item yang sudah tersimpan langsung terkunci
   return r;
 }
@@ -235,8 +299,9 @@ async function saveRow(r) {
   if (!st) return msg('Pilih status dulu (OK / Warning / Down / N/A)', true);
   if (['Warning', 'Down'].includes(st) && !txt(r).value.trim()) { mark(r); return msg('Isi catatan untuk status Warning / Down', true); }
   try {
-    await api('checklist.php', 'POST', {tanggal: $('#tanggal').value, shift: $('#shift').value,
+    const d = await api('checklist.php', 'POST', {tanggal: $('#tanggal').value, shift: $('#shift').value,
       entries: [{item_id: items[r.dataset.i].id, status: st, catatan: txt(r).value, jam_cek: tm(r).value}]});
+    const it = items[r.dataset.i]; it.entry_id = (d.ids || {})[it.id]; it.updates = it.updates || [];
     markSaved(r); msg('');
   } catch (e) { onErr(e); }
 }
@@ -398,7 +463,17 @@ async function preview() {
         const ev = document.createElement('div'); ev.className = 'ev';
         if (r.ev.length) { const c = document.createElement('span'); c.className = 'chip ok'; c.textContent = `📷 ${r.ev.length} foto`; ev.append(c); }
         r.ev.forEach(id => ev.append(thumbLink(id)));
+        const lu = (r.upd || [])[(r.upd || []).length - 1];
+        if (lu) { const c2 = document.createElement('span'); c2.className = 'chip ' + (lu.selesai ? 'ok' : 'warn'); c2.textContent = lu.selesai ? '✔ Selesai' : '⏳ Proses'; ev.prepend(c2); }
         row.append(n, st, ct, ev); g.append(row);
+        (r.upd || []).forEach(u => {   // update tindak lanjut tepat di bawah itemnya
+          const ur = document.createElement('div'); ur.className = 'urow';
+          const hd = document.createElement('div'); hd.className = 'meta'; hd.textContent = `↳ Update ${u.waktu} · ${u.petugas}${u.selesai ? ' · ✔ Masalah selesai' : ''}`;
+          const tx = document.createElement('div'); tx.className = 'tx'; tx.textContent = u.tindakan;
+          ur.append(hd, tx);
+          if (u.ev.length) { const th = document.createElement('div'); th.className = 'ev'; u.ev.forEach(id => th.append(thumbLink(id))); ur.append(th); }
+          g.append(ur);
+        });
       });
       box.append(g);
     });
