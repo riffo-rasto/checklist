@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Checklist Harian NOC</title>
-  <link rel="stylesheet" href="assets/css/style.css?v=11">
+  <link rel="stylesheet" href="assets/css/style.css?v=13">
 </head>
 <body>
   <section id="login-view" hidden>
@@ -52,6 +52,18 @@
           <label>Sampai <input type="date" id="to"></label>
           <button id="this-month" class="ghost">Bulan ini</button>
           <button id="show-rpt" class="primary">Tampilkan</button>
+        </div>
+        <div class="bar">
+          <label>Shift
+            <select id="f-shift"><option value="">Semua</option><option>Pagi</option><option>Siang</option><option>Malam</option></select>
+          </label>
+          <label>Petugas <select id="f-pet"><option value="">Semua</option></select></label>
+          <label>Urutkan
+            <select id="f-sort">
+              <option value="tgl-asc">Tanggal (terlama dulu)</option><option value="tgl-desc">Tanggal (terbaru dulu)</option>
+              <option value="shift">Shift</option><option value="pet">Petugas (A–Z)</option>
+            </select>
+          </label>
         </div>
         <div class="bar">
           <label class="chk"><input type="checkbox" id="only-bad"> Hanya Warning / Down</label>
@@ -105,6 +117,6 @@
       </div>
     </main>
   </section>
-  <script src="assets/js/app.js?v=11"></script>
+  <script src="assets/js/app.js?v=13"></script>
 </body>
 </html>

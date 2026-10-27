@@ -10,8 +10,8 @@ Aplikasi web untuk mengisi checklist harian NOC per **tanggal dan shift**, lengk
 - Status Warning / Down wajib diberi catatan atau nomor tiket.
 - Tombol **Simpan** di tiap item. Setelah disimpan, item **terkunci** (abu-abu, tanda "Selesai") dan tidak bisa diubah. Checklist hari atau shift berikutnya otomatis kosong lagi.
 - Foto evidence maksimal 5 per item. Foto dikecilkan otomatis di browser (maks. 1280 px). Foto hanya bisa ditambah atau dihapus **sebelum** item disimpan.
-- Item **Warning / Down** yang sudah disimpan punya tombol **+ Update** untuk mencatat **tindakan / penyelesaian** dan foto setelah penanganan. Bisa beberapa kali (riwayat update), dengan opsi "Masalah sudah selesai". Status dan catatan asli tidak berubah.
-- Rekap: pilih periode, klik **Tampilkan** untuk melihat data lengkap dengan thumbnail foto (klik untuk memperbesar), filter "Hanya Warning / Down", lalu unduh **CSV**, **Excel**, atau **Cetak / PDF**. Rekap hanya memuat item yang sudah **disimpan**; foto dari item yang belum disimpan tidak ikut.
+- Item **Warning / Down** yang sudah disimpan punya tombol **+ Update** untuk mencatat **tindakan / penyelesaian** dan foto setelah penanganan. Bisa beberapa kali (riwayat update), dengan opsi "Masalah sudah selesai". Begitu update dengan centang selesai dikirim, tombol Update hilang (masalah ditutup); admin bisa membukanya kembali dengan menghapus update tersebut. Status dan catatan asli tidak berubah.
+- Rekap: pilih periode, klik **Tampilkan** untuk melihat data lengkap dengan thumbnail foto (klik untuk memperbesar), filter "Hanya Warning / Down", lalu unduh **CSV**, **Excel**, atau **Cetak / PDF**. Rekap hanya memuat item yang sudah **disimpan**; foto dari item yang belum disimpan tidak ikut. Tampilan bisa **difilter per shift dan petugas** serta **diurutkan** (tanggal, shift, petugas); filter shift dan petugas ikut diterapkan pada unduhan CSV / Excel.
 
 **Admin** (tab **Setting** dan tombol tambahan)
 - Kelola pengguna: tambah, ubah nama dan peran, reset password, nonaktifkan, hapus.

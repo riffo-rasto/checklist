@@ -7,6 +7,8 @@ need_login();
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';
 $fmt = ($_GET['format'] ?? 'csv') === 'xlsx' ? 'xlsx' : 'csv';
+$fs = in_array($_GET['shift'] ?? '', ['Pagi', 'Siang', 'Malam'], true) ? $_GET['shift'] : '';   // filter shift (opsional)
+$fp = trim($_GET['petugas'] ?? '');                                                            // filter petugas (opsional)
 foreach ([$from, $to] as $d) if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) out(['error' => 'Periode tidak valid'], 422);
 
 $PRI = ['P1' => 'P1 – Kritis', 'P2' => 'P2 – Tinggi', 'P3' => 'P3 – Menengah', 'P4' => 'P4 – Rutin', 'END' => 'Penutup shift'];
@@ -18,9 +20,9 @@ $s = db()->prepare("SELECT s.tanggal, s.shift, s.putaran, i.id AS item_id, e.id 
     JOIN checklist_items i ON i.id = e.item_id
     JOIN users us ON us.id = s.user_id
     LEFT JOIN users ue ON ue.id = e.user_id
-    WHERE s.tanggal BETWEEN ? AND ? AND e.status IS NOT NULL
+    WHERE s.tanggal BETWEEN ? AND ? AND e.status IS NOT NULL AND (? = '' OR s.shift = ?) AND (? = '' OR COALESCE(ue.nama, us.nama) = ?)
     ORDER BY s.tanggal, FIELD(s.shift, 'Pagi', 'Siang', 'Malam'), s.putaran, i.urutan");
-$s->execute([$from, $to]);
+$s->execute([$from, $to, $fs, $fs, $fp, $fp]);
 
 $dmy = fn($d) => date('d/m/Y', strtotime($d));
 $head = ['Tanggal', 'Shift', 'Prioritas', 'Item Pengecekan', 'Status', 'Catatan / No. Tiket', 'Jam Cek', 'Petugas', 'Diisi Pada'];
@@ -30,7 +32,7 @@ $uq = db()->prepare("SELECT u.entry_id, u.tindakan, u.selesai, DATE_FORMAT(u.cre
     FROM checklist_updates u JOIN checklist_entries e ON e.id = u.entry_id JOIN checklist_sessions s ON s.id = e.session_id JOIN users us ON us.id = u.user_id
     WHERE s.tanggal BETWEEN ? AND ? ORDER BY u.id");
 $uq->execute([$from, $to]);
-foreach ($uq as $u) { $tl[$u['entry_id']][] = $u['waktu'] . ' ' . $u['petugas'] . ': ' . $u['tindakan']; $pen[$u['entry_id']] = $u['selesai'] ? 'Selesai' : 'Proses'; }
+foreach ($uq as $u) { $tl[$u['entry_id']][] = $u['waktu'] . ' ' . $u['petugas'] . ': ' . $u['tindakan']; $pen[$u['entry_id']] = (($pen[$u['entry_id']] ?? '') === 'Selesai' || $u['selesai']) ? 'Selesai' : 'Proses'; }
 $rows = []; $bad = []; $sum = []; $cols = []; $cell = []; $its = [];
 foreach ($s as $r) {
     $st = (string)$r['status'];
@@ -67,6 +69,7 @@ if ($fmt === 'csv') {
 
 // ---- Excel: Ringkasan, Masalah, Matriks, Detail
 $meta = 'Periode ' . $dmy($from) . ' s.d. ' . $dmy($to) . ' · diunduh ' . date('d/m/Y H:i') . ' oleh ' . ($_SESSION['nama'] ?? '-');
+if ($fs || $fp) $meta .= ' · filter: ' . trim(($fs ? "shift $fs " : '') . ($fp ? "petugas $fp" : ''));
 $sumRows = array_map(fn($v) => [$v['t'], $v['s'], implode(', ', array_keys($v['p'])), $v['OK'], $v['Warning'], $v['Down'], $v['N/A'], $v['n'],
                                 $v['bad'] ? implode("\n", $v['bad']) : '-'], array_values($sum));
 if (!$bad) $bad = [['Tidak ada Warning / Down pada periode ini', '', '', '', '', '', '', '', '', '']];
@@ -84,7 +87,7 @@ foreach ($its as $id => [$u, $p, $n]) {
 
 // Laporan: susunan seperti tampilan web (judul per sesi, item, status berwarna, update tindak lanjut); foto di kolom Foto 1-5
 $withFoto = ($_GET['foto'] ?? '1') === '1';
-$rep = build_report($from, $to);
+$rep = build_report($from, $to, $fs, $fp);
 $files = [];
 if ($withFoto) {
     $ids = [];
@@ -110,7 +113,7 @@ foreach ($rep as $sess) {
     $nf = 0;
     foreach ($sess['rows'] as $r) { $nf += count($r['ev']); foreach ($r['upd'] as $u) $nf += count($u['ev']); }
     $c = $sess['c'];
-    $lap[] = ['banner' => $dmy($sess['tanggal']) . ' · ' . $sess['shift'] . ($sess['putaran'] > 1 ? ' · Putaran ' . $sess['putaran'] : '') . ' · ' . $sess['petugas']
+    $lap[] = ['banner' => $dmy($sess['tanggal']) . ' · ' . $sess['shift'] . ($sess['putaran'] > 1 ? ' · Putaran ' . $sess['putaran'] : '')
         . "      OK {$c['OK']} · Warning {$c['Warning']} · Down {$c['Down']} · N/A {$c['N/A']} · $nf foto"];
     foreach ($sess['rows'] as $r) {
         $n = count($r['ev']);

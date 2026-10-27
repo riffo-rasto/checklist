@@ -15,6 +15,9 @@ if (!empty($_POST['entry_id'])) {   // buat update (multipart: entry_id, tindaka
     $q->execute([(int)$_POST['entry_id']]);
     $e = $q->fetch();
     if (!$e || !in_array($e['status'], ['Warning', 'Down'], true)) out(['error' => 'Update hanya untuk item berstatus Warning / Down'], 422);
+    $c = db()->prepare('SELECT 1 FROM checklist_updates WHERE entry_id = ? AND selesai = 1 LIMIT 1');
+    $c->execute([$e['id']]);
+    if ($c->fetchColumn()) out(['error' => 'Masalah ini sudah dinyatakan selesai, update ditutup'], 422);
 
     $files = [];   // validasi semua foto dulu, baru simpan
     $fl = $_FILES['files'] ?? null;

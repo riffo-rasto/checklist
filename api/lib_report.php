@@ -2,10 +2,10 @@
 // Data rekap bersama (dipakai tampilan web dan export Excel): per tanggal + shift (+ putaran).
 // Hanya item yang sudah DISIMPAN (punya status) yang masuk rekap; foto ikut hanya kalau itemnya sudah disimpan.
 // Setiap item Warning/Down membawa daftar update tindak lanjutnya ('upd').
-function build_report(string $from, string $to): array {
+function build_report(string $from, string $to, string $shift = '', string $pet = ''): array {
     $ss = db()->prepare("SELECT s.id, s.tanggal, s.shift, s.putaran, u.nama AS petugas FROM checklist_sessions s JOIN users u ON u.id = s.user_id
-        WHERE s.tanggal BETWEEN ? AND ? ORDER BY s.tanggal, FIELD(s.shift, 'Pagi', 'Siang', 'Malam'), s.putaran");
-    $ss->execute([$from, $to]);
+        WHERE s.tanggal BETWEEN ? AND ? AND (? = '' OR s.shift = ?) ORDER BY s.tanggal, FIELD(s.shift, 'Pagi', 'Siang', 'Malam'), s.putaran");
+    $ss->execute([$from, $to, $shift, $shift]);
     $out = [];
     foreach ($ss as $r) $out[$r['id']] = $r + ['c' => ['OK' => 0, 'Warning' => 0, 'Down' => 0, 'N/A' => 0]];
 
@@ -43,6 +43,8 @@ function build_report(string $from, string $to): array {
     $res = [];
     foreach ($out as $sid => $s) {
         $list = $rows[$sid] ?? [];
+        if ($pet !== '')   // filter petugas: item yang diisi atau di-update orang itu
+            $list = array_values(array_filter($list, fn($r) => $r['petugas'] === $pet || array_filter($r['upd'], fn($u) => $u['petugas'] === $pet)));
         if (!$list) continue;
         usort($list, fn($a, $b) => $a['u'] <=> $b['u']);
         foreach ($list as $r) if (isset($s['c'][$r['status']])) $s['c'][$r['status']]++;

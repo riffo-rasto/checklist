@@ -3,7 +3,7 @@
 require __DIR__ . '/config.php';
 require __DIR__ . '/lib_session.php';
 need_login();
-const EVIDENCE_DIR = 'DIREKTORI_EVIDENCE';   // di luar web root, hanya bisa dibuka lewat file ini
+const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // di luar web root, hanya bisa dibuka lewat file ini
 $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
 // Item yang sudah disimpan (punya status) terkunci: foto tidak bisa ditambah/dihapus, kecuali oleh admin
@@ -41,7 +41,7 @@ if (!empty($_FILES['file'])) {
     $pdo = db();
     $sid = current_session($tgl, $sh, (int)$_SESSION['uid']);   // putaran terbaru; dibuat otomatis kalau belum ada
     if (item_locked((int)$sid, $item)) out(['error' => 'Item sudah disimpan dan terkunci, foto tidak bisa ditambah'], 403);
-    $c = $pdo->prepare('SELECT COUNT(*) FROM evidence WHERE session_id = ? AND item_id = ?');
+    $c = $pdo->prepare('SELECT COUNT(*) FROM evidence WHERE session_id = ? AND item_id = ? AND update_id IS NULL');
     $c->execute([$sid, $item]);
     if ($c->fetchColumn() >= 5) out(['error' => 'Maksimal 5 gambar per item'], 422);
 

@@ -75,12 +75,14 @@ function refreshUpd(r) {
   box.hidden = !on;
   if (!on) return;
   box.replaceChildren();
-  const ups = it.updates || [], last = ups[ups.length - 1];
+  const ups = it.updates || [], closed = ups.some(u => u.selesai);   // sudah ada update 'selesai' = masalah ditutup
   const head = document.createElement('div'); head.className = 'uhead';
-  const chip = document.createElement('span'); chip.className = 'chip ' + (last && last.selesai ? 'ok' : 'warn');
-  chip.textContent = last ? (last.selesai ? '✔ Masalah selesai' : '⏳ Dalam penanganan') : 'Belum ada tindak lanjut';
+  const chip = document.createElement('span'); chip.className = 'chip ' + (closed ? 'ok' : 'warn');
+  chip.textContent = closed ? '✔ Masalah selesai' : (ups.length ? '⏳ Dalam penanganan' : 'Belum ada tindak lanjut');
   const add = document.createElement('button'); add.type = 'button'; add.className = 'primary small'; add.textContent = '+ Update';
-  head.append(chip, add); box.append(head);
+  head.append(chip);
+  if (!closed) head.append(add);   // masalah selesai: tombol Update hilang
+  box.append(head);
   ups.forEach(u => {
     const li = document.createElement('div'); li.className = 'ui';
     const m = document.createElement('div'); m.className = 'meta'; m.textContent = `${u.waktu} · ${u.petugas}${u.selesai ? ' · ✔ Selesai' : ''}`;
@@ -124,7 +126,7 @@ function refreshUpd(r) {
       (it.updates = it.updates || []).push(d.update); refreshUpd(r);
     } catch (e) { send.disabled = false; warn(e); }
   };
-  f.append(ta, cl, fr, fb); box.append(f);
+  f.append(ta, cl, fr, fb); if (!closed) box.append(f);
 }
 
 function clearRow(r) {   // kosongkan satu baris (item yang sudah tersimpan tidak bisa dikosongkan)
@@ -317,7 +319,7 @@ function markSaved(r) {
 
 const download = fmt => {
   if (!$('#from').value || !$('#to').value) return;
-  location.href = `api/export.php?from=${$('#from').value}&to=${$('#to').value}&format=${fmt}&foto=${$('#inc-foto').checked ? 1 : 0}`;
+  location.href = `api/export.php?from=${$('#from').value}&to=${$('#to').value}&format=${fmt}&foto=${$('#inc-foto').checked ? 1 : 0}&shift=${encodeURIComponent($('#f-shift').value)}&petugas=${encodeURIComponent($('#f-pet').value)}`;
 };
 
 $('#login-form').onsubmit = async ev => {
@@ -430,56 +432,90 @@ async function delItem(it) {
 $('#i-save').onclick = saveItem;
 $('#i-reset').onclick = resetItemForm;
 
-// ---- Rekap: tampilkan dulu di web, unduh belakangan
+// ---- Rekap: tampilkan dulu di web (bisa difilter dan diurutkan), unduh belakangan
 const dmy = s => s.split('-').reverse().join('/');
+const SH = {Pagi: 0, Siang: 1, Malam: 2};
+const pk = s => s.rows.map(r => r.petugas || '').sort()[0] || '';   // kunci urut petugas: nama pertama (A-Z) di item yang tampil
+const SORTS = {
+  'tgl-asc': (a, b) => a.tanggal.localeCompare(b.tanggal) || SH[a.shift] - SH[b.shift] || a.putaran - b.putaran,
+  'tgl-desc': (a, b) => b.tanggal.localeCompare(a.tanggal) || SH[b.shift] - SH[a.shift] || b.putaran - a.putaran,
+  'shift': (a, b) => SH[a.shift] - SH[b.shift] || a.tanggal.localeCompare(b.tanggal) || a.putaran - b.putaran,
+  'pet': (a, b) => pk(a).localeCompare(pk(b)) || a.tanggal.localeCompare(b.tanggal) || SH[a.shift] - SH[b.shift]
+};
+let rpt = [];   // data rekap yang sedang ditampilkan (filter & urutan dikerjakan di browser)
+
 async function preview() {
   const box = $('#rpt'); box.textContent = 'Memuat…';
   try {
     const d = await api(`report.php?from=${$('#from').value}&to=${$('#to').value}`);
-    box.replaceChildren();
-    if (!d.sessions.length) { box.textContent = 'Tidak ada data pada periode ini.'; return; }
-    d.sessions.forEach(s => {
-      const g = document.createElement('section'); g.className = 'grp';
-      const h = document.createElement('div'); h.className = 'grp-h';
-      const t = document.createElement('b'); t.textContent = `${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''} · ${s.petugas}`;
-      const c = document.createElement('span'); c.className = 'meta';
-      c.textContent = `OK ${s.c.OK} · Warning ${s.c.Warning} · Down ${s.c.Down} · N/A ${s.c['N/A']} · 📷 ${s.rows.reduce((n, r) => n + r.ev.length, 0)} foto`;
-      const right = document.createElement('span'); right.className = 'hr'; right.append(c);
-      if (isAdmin) {   // admin: hapus rekap sesi ini beserta fotonya
-        const del = document.createElement('button'); del.type = 'button'; del.className = 'ghost small danger'; del.textContent = 'Hapus';
-        del.onclick = async () => {
-          if (!confirm(`HAPUS rekap ${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''}?\nSemua item dan foto pada sesi ini dihapus permanen dan tidak bisa dikembalikan.`)) return;
-          try { await api('admin_data.php', 'POST', {action: 'delete_session', id: s.id}); preview(); }
-          catch (e) { alert(e.message); }
-        };
-        right.append(del);
-      }
-      h.append(t, right); g.append(h);
-      s.rows.forEach(r => {
-        const row = document.createElement('div'); row.className = 'rrow'; row.dataset.st = r.status;
-        const n = document.createElement('div'); n.textContent = r.item;
-        const st = document.createElement('span'); st.className = 'badge'; st.textContent = r.status || '–';
-        const ct = document.createElement('div'); ct.className = 'meta'; ct.textContent = [r.catatan, r.jam, r.petugas].filter(Boolean).join(' · ');
-        const ev = document.createElement('div'); ev.className = 'ev';
-        if (r.ev.length) { const c = document.createElement('span'); c.className = 'chip ok'; c.textContent = `📷 ${r.ev.length} foto`; ev.append(c); }
-        r.ev.forEach(id => ev.append(thumbLink(id)));
-        const lu = (r.upd || [])[(r.upd || []).length - 1];
-        if (lu) { const c2 = document.createElement('span'); c2.className = 'chip ' + (lu.selesai ? 'ok' : 'warn'); c2.textContent = lu.selesai ? '✔ Selesai' : '⏳ Proses'; ev.prepend(c2); }
-        row.append(n, st, ct, ev); g.append(row);
-        (r.upd || []).forEach(u => {   // update tindak lanjut tepat di bawah itemnya
-          const ur = document.createElement('div'); ur.className = 'urow';
-          const hd = document.createElement('div'); hd.className = 'meta'; hd.textContent = `↳ Update ${u.waktu} · ${u.petugas}${u.selesai ? ' · ✔ Masalah selesai' : ''}`;
-          const tx = document.createElement('div'); tx.className = 'tx'; tx.textContent = u.tindakan;
-          ur.append(hd, tx);
-          if (u.ev.length) { const th = document.createElement('div'); th.className = 'ev'; u.ev.forEach(id => th.append(thumbLink(id))); ur.append(th); }
-          g.append(ur);
-        });
-      });
-      box.append(g);
-    });
+    rpt = d.sessions;
+    const names = new Set();   // daftar petugas untuk filter
+    rpt.forEach(s => { s.rows.forEach(r => { names.add(r.petugas); (r.upd || []).forEach(u => names.add(u.petugas)); }); });
+    const sel = $('#f-pet'), keep = sel.value;
+    sel.replaceChildren(new Option('Semua', ''), ...[...names].filter(Boolean).sort((a, b) => a.localeCompare(b)).map(n => new Option(n, n)));
+    sel.value = names.has(keep) ? keep : '';
+    renderRpt();
   } catch (e) { box.textContent = e.message; if (e.status === 401) location.reload(); }
 }
+
+function renderRpt() {
+  const box = $('#rpt'), fs = $('#f-shift').value, fp = $('#f-pet').value;
+  box.replaceChildren();
+  const list = rpt.filter(s => !fs || s.shift === fs)
+    .map(s => ({...s, rows: fp ? s.rows.filter(r => r.petugas === fp || (r.upd || []).some(u => u.petugas === fp)) : s.rows}))
+    .filter(s => s.rows.length)
+    .sort(SORTS[$('#f-sort').value] || SORTS['tgl-asc']);
+  if (!list.length) { box.textContent = rpt.length ? 'Tidak ada data yang cocok dengan filter.' : 'Tidak ada data pada periode ini.'; return; }
+  const info = document.createElement('div'); info.className = 'meta';
+  info.textContent = `${list.length} sesi · ${list.reduce((n, s) => n + s.rows.length, 0)} item`;
+  box.append(info);
+  list.forEach(s => {
+    const cnt = {OK: 0, Warning: 0, Down: 0, 'N/A': 0};
+    let nf = 0;
+    s.rows.forEach(r => { if (r.status in cnt) cnt[r.status]++; nf += r.ev.length + (r.upd || []).reduce((n, u) => n + u.ev.length, 0); });
+    const g = document.createElement('section'); g.className = 'grp';
+    const h = document.createElement('div'); h.className = 'grp-h';
+    const t = document.createElement('b'); t.textContent = `${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''}`;
+    const c = document.createElement('span'); c.className = 'meta';
+    c.textContent = `OK ${cnt.OK} · Warning ${cnt.Warning} · Down ${cnt.Down} · N/A ${cnt['N/A']} · 📷 ${nf} foto`;
+    const right = document.createElement('span'); right.className = 'hr'; right.append(c);
+    if (isAdmin) {   // admin: hapus rekap sesi ini beserta fotonya
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'ghost small danger'; del.textContent = 'Hapus';
+      del.onclick = async () => {
+        if (!confirm(`HAPUS rekap ${dmy(s.tanggal)} · ${s.shift}${s.putaran > 1 ? ' · Putaran ' + s.putaran : ''}?\nSemua item dan foto pada sesi ini dihapus permanen dan tidak bisa dikembalikan.`)) return;
+        try { await api('admin_data.php', 'POST', {action: 'delete_session', id: s.id}); preview(); }
+        catch (e) { alert(e.message); }
+      };
+      right.append(del);
+    }
+    h.append(t, right); g.append(h);
+    s.rows.forEach(r => {
+      const row = document.createElement('div'); row.className = 'rrow'; row.dataset.st = r.status;
+      const n = document.createElement('div'); n.textContent = r.item;
+      const st = document.createElement('span'); st.className = 'badge'; st.textContent = r.status || '–';
+      const ct = document.createElement('div'); ct.className = 'meta'; ct.textContent = [r.catatan, r.jam, r.petugas].filter(Boolean).join(' · ');
+      const ev = document.createElement('div'); ev.className = 'ev';
+      if (r.ev.length) { const c1 = document.createElement('span'); c1.className = 'chip ok'; c1.textContent = `📷 ${r.ev.length} foto`; ev.append(c1); }
+      r.ev.forEach(id => ev.append(thumbLink(id)));
+      if ((r.upd || []).length) {
+        const done = r.upd.some(u => u.selesai), c2 = document.createElement('span');
+        c2.className = 'chip ' + (done ? 'ok' : 'warn'); c2.textContent = done ? '✔ Selesai' : '⏳ Proses'; ev.prepend(c2);
+      }
+      row.append(n, st, ct, ev); g.append(row);
+      (r.upd || []).forEach(u => {   // update tindak lanjut tepat di bawah itemnya
+        const ur = document.createElement('div'); ur.className = 'urow';
+        const hd = document.createElement('div'); hd.className = 'meta'; hd.textContent = `↳ Update ${u.waktu} · ${u.petugas}${u.selesai ? ' · ✔ Masalah selesai' : ''}`;
+        const tx = document.createElement('div'); tx.className = 'tx'; tx.textContent = u.tindakan;
+        ur.append(hd, tx);
+        if (u.ev.length) { const th = document.createElement('div'); th.className = 'ev'; u.ev.forEach(id => th.append(thumbLink(id))); ur.append(th); }
+        g.append(ur);
+      });
+    });
+    box.append(g);
+  });
+}
 $('#show-rpt').onclick = preview;
+['#f-shift', '#f-pet', '#f-sort'].forEach(s => $(s).onchange = renderRpt);
 $('#clear-all').onclick = clearChecklist;
 $('#print-rpt').onclick = () => window.print();   // di dialog cetak pilih "Save as PDF"
 $('#only-bad').onchange = e => $('#rpt').classList.toggle('only', e.target.checked);
