@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Checklist Harian NOC</title>
-  <link rel="stylesheet" href="assets/css/style.css?v=14">
+  <title>Departemen NOC &amp; Teknikal</title>
+  <link rel="stylesheet" href="assets/css/style.css?v=15">
 </head>
 <body>
   <section id="login-view" hidden>
     <form id="login-form" class="card login">
-      <h1>Checklist Harian NOC</h1>
+      <h1>Departemen NOC &amp; Teknikal</h1>
       <label>Username <input id="username" autocomplete="username" required></label>
       <label>Password <input id="password" type="password" autocomplete="current-password" required></label>
       <button class="primary">Masuk</button>
@@ -17,18 +17,30 @@
     </form>
   </section>
 
-  <section id="app-view" hidden>
-    <header class="top">
-      <h1>Checklist Harian NOC</h1>
-      <div><span id="user"></span> <button id="logout" class="ghost">Keluar</button></div>
-    </header>
-    <nav class="tabs">
-      <button data-tab="checklist" class="active">Checklist</button>
-      <button data-tab="export">Rekap &amp; unduh</button>
-      <button data-tab="users" id="tab-users-btn" hidden>Setting</button>
-    </nav>
+  <section id="app-view" class="shell" hidden>
+    <aside class="side" id="side">
+      <div class="brand"><i>🛠</i><span>Departemen NOC &amp; Teknikal</span></div>
+      <div class="me"><span class="av" id="av">?</span><div><b id="me-name"></b><small id="me-role"></small></div></div>
+      <nav>
+        <div class="grp-t nav-noc">CHECKLIST NOC</div>
+        <button class="nv nav-noc" data-go="checklist" data-tip="Checklist"><i>✔</i><span>Checklist</span></button>
+        <button class="nv nav-noc" data-go="export" data-tip="Rekap &amp; unduh"><i>📊</i><span>Rekap &amp; unduh</span></button>
+        <div class="grp-t nav-tek">TEKNIKAL</div>
+        <button class="nv nav-tek" data-go="tek-dash" data-tip="Dashboard"><i>▦</i><span>Dashboard</span></button>
+        <button class="nv nav-tek" data-go="tek-list" data-tip="Laporan"><i>📋</i><span>Laporan</span></button>
+        <button class="nv nav-tek" data-go="tek-form" data-tip="Laporan baru"><i>＋</i><span>Laporan baru</span></button>
+        <div class="grp-t nav-adm">ADMIN</div>
+        <button class="nv nav-adm" data-go="users" data-tip="Setting"><i>⚙</i><span>Setting</span></button>
+      </nav>
+    </aside>
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="main">
+      <header class="top">
+        <div class="tl"><button id="burger" class="ghost" aria-label="Menu">☰</button><b id="crumb"></b></div>
+        <div><span id="user"></span> <button id="logout" class="ghost">Keluar</button></div>
+      </header>
 
-    <main id="tab-checklist" class="tab">
+    <main id="tab-checklist" class="tab" hidden>
       <div class="bar">
         <label>Tanggal <input type="date" id="tanggal"></label>
         <label>Shift
@@ -85,7 +97,7 @@
           <label>Nama <input id="u-nama"></label>
           <label>Password <input id="u-pass" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter"></label>
           <label>Peran
-            <select id="u-role"><option value="petugas">Petugas</option><option value="admin">Admin</option></select>
+            <select id="u-role"><option value="noc">NOC (Checklist NOC)</option><option value="teknis">Teknis (Teknikal)</option><option value="admin">Admin (semua)</option></select>
           </label>
           <label class="chk"><input type="checkbox" id="u-aktif" checked> Aktif</label>
         </div>
@@ -115,8 +127,87 @@
           <tbody id="i-rows"></tbody>
         </table>
       </div>
+    
+      <h2 class="sec">Kategori Teknikal</h2>
+      <div class="card">
+        <h2 id="kt-title">Tambah kategori</h2>
+        <div class="bar">
+          <label class="grow">Nama kategori <input id="kt-nama" maxlength="60"></label>
+          <label class="chk"><input type="checkbox" id="kt-aktif" checked> Aktif</label>
+        </div>
+        <div class="bar"><button id="kt-save" class="primary">Simpan kategori</button><button id="kt-reset" class="ghost">Batal</button><span id="kt-msg"></span></div>
+      </div>
+      <div class="scroll" style="margin-top:14px">
+        <table>
+          <thead><tr><th>Kategori</th><th>Dipakai</th><th>Status</th><th></th></tr></thead>
+          <tbody id="kt-rows"></tbody>
+        </table>
+      </div>
     </main>
+
+    <main id="v-tek-dash" class="tab wide" hidden>
+      <div class="cards4">
+        <div class="sc blue" data-st=""><b id="tk-total">0</b><span>Total laporan</span></div>
+        <div class="sc red" data-st="Open"><b id="tk-open">0</b><span>Open</span></div>
+        <div class="sc orange" data-st="In Progress"><b id="tk-prog">0</b><span>In Progress</span></div>
+        <div class="sc green" data-st="Selesai"><b id="tk-done">0</b><span>Selesai</span></div>
+      </div>
+      <div class="two">
+        <div class="card"><h2>Laporan terbaru</h2><div id="tk-recent"></div><div class="bar" style="margin:12px 0 0"><button class="primary small" data-new>+ Laporan baru</button></div></div>
+        <div class="card"><h2>Laporan per kategori</h2><div id="tk-bykat"></div></div>
+      </div>
+    </main>
+
+    <main id="v-tek-list" class="tab wide" hidden>
+      <div class="card">
+        <div class="bar">
+          <label>Dari <input type="date" id="tk-f-from"></label>
+          <label>Sampai <input type="date" id="tk-f-to"></label>
+          <label>Status <select id="tk-f-status"><option value="">Semua</option><option>Open</option><option>In Progress</option><option>Selesai</option></select></label>
+          <label>Kategori <select id="tk-f-kat"><option value="">Semua kategori</option></select></label>
+          <label class="grow">Cari <input id="tk-f-q" placeholder="judul, lokasi, uraian"></label>
+          <label class="chk"><input type="checkbox" id="tk-f-mine"> Laporan saya</label>
+          <button id="tk-apply" class="primary">Terapkan</button>
+          <button class="primary" data-new>+ Laporan baru</button>
+        </div>
+        <div class="meta" id="tk-count"></div>
+      </div>
+      <div class="scroll" style="margin-top:14px">
+        <table>
+          <thead><tr><th>No</th><th>Tanggal</th><th>Lokasi</th><th>Kategori</th><th>Jenis</th><th>Judul</th><th>Status</th><th>Teknisi</th><th>Foto</th></tr></thead>
+          <tbody id="tk-rows"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <main id="v-tek-form" class="tab" hidden>
+      <div class="card">
+        <h2 id="tk-ftitle">Laporan baru</h2>
+        <div class="fgrid">
+          <label>Tanggal <input type="date" id="tk-tgl"></label>
+          <label>Lokasi / site <input id="tk-lok" maxlength="150"></label>
+          <label>Kategori <select id="tk-kat"></select></label>
+          <label>Jenis pekerjaan
+            <select id="tk-jenis"><option>Preventive</option><option selected>Corrective</option><option>Instalasi</option><option>Survey</option><option>Lainnya</option></select>
+          </label>
+          <label class="full">Judul <input id="tk-judul" maxlength="200"></label>
+          <label class="full">Uraian temuan / pekerjaan <textarea id="tk-uraian" rows="4" maxlength="5000"></textarea></label>
+          <label class="full">Tindakan yang dilakukan <textarea id="tk-tindakan" rows="3" maxlength="5000"></textarea></label>
+          <label>Status <select id="tk-status"><option>Open</option><option>In Progress</option><option>Selesai</option></select></label>
+          <div class="full uhead">
+            <button type="button" class="ghost small" id="tk-p1">📷 Foto sebelum</button><span class="chip" id="tk-c1">Belum ada foto</span>
+            <button type="button" class="ghost small" id="tk-p2">📷 Foto sesudah</button><span class="chip" id="tk-c2">Belum ada foto</span>
+            <input type="file" id="tk-fsebelum" accept="image/*" multiple hidden><input type="file" id="tk-fsesudah" accept="image/*" multiple hidden>
+          </div>
+        </div>
+        <div class="bar" style="margin:14px 0 0"><button id="tk-save" class="primary">Simpan laporan</button><button id="tk-cancel" class="ghost">Batal</button><span id="tk-msg" class="err"></span></div>
+      </div>
+    </main>
+
+    <main id="v-tek-detail" class="tab" hidden><div class="card" id="tk-detail"></div></main>
+    </div>
   </section>
-  <script src="assets/js/app.js?v=14"></script>
+  <script src="assets/js/app.js?v=15"></script>
+  <script src="assets/js/teknikal.js?v=15"></script>
 </body>
 </html>

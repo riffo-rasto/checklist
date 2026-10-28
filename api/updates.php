@@ -2,7 +2,8 @@
 // Update tindak lanjut untuk item Warning / Down: kolom tindakan + foto setelah penanganan.
 // Hanya MENAMBAH catatan; status dan catatan asli checklist tidak diubah.
 require __DIR__ . '/config.php';
-need_login();
+require __DIR__ . '/lib_access.php';
+need_login(); need_app('noc');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(['error' => 'Hanya POST'], 405);
 need_csrf();
 const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // samakan dengan api/evidence.php

@@ -19,13 +19,27 @@ Aplikasi web untuk mengisi checklist harian NOC per **tanggal dan shift**, lengk
 - Tombol **Ubah** pada item terkunci, dan **Clear checklist ini** untuk mengosongkan checklist tanpa menunggu ganti hari. Clear **tidak menghapus** apa pun: data yang sudah tersimpan tetap ada di rekap (sebagai "Putaran 1"), dan checklist dibuka kembali kosong sebagai putaran berikutnya.
 - Tombol **Hapus** di tiap item pada rekap untuk membuang **satu item** beserta foto dan update-nya (jadi salah isi satu item tidak perlu menghapus seluruh sesi). Jika item itu ada di checklist yang sedang dibuka, item tersebut kembali kosong dan bisa diisi ulang. Ini satu-satunya aksi yang menghapus data rekap.
 
-| Aksi | Petugas | Admin |
+| Aksi | NOC | Admin |
 |---|:---:|:---:|
 | Isi, simpan, dan upload foto sebelum disimpan | ✔ | ✔ |
 | Ubah item yang sudah tersimpan | ✘ | ✔ |
 | Lihat rekap dan unduh | ✔ | ✔ |
 | Clear checklist, hapus rekap | ✘ | ✔ |
 | Setting pengguna dan item | ✘ | ✔ |
+
+## Aplikasi dan peran
+
+Satu login, dua aplikasi yang dipilih lewat **sidebar** (bisa dilipat jadi ikon):
+
+| Peran | Akses |
+|---|---|
+| **admin** | Semua: Checklist NOC, Teknikal, dan Setting (pengguna, item checklist, kategori Teknikal) |
+| **noc** | Hanya Checklist NOC |
+| **teknis** | Hanya aplikasi Teknikal |
+
+Pembatasan dicek di server: pengguna `teknis` yang memanggil endpoint Checklist NOC (atau sebaliknya) akan ditolak (403).
+
+**Teknikal**: laporan pekerjaan teknisi dengan dashboard (jumlah Open / In Progress / Selesai, laporan per kategori), daftar laporan dengan filter (tanggal, status, kategori, pencarian, laporan saya), form laporan (tanggal, lokasi, kategori, jenis pekerjaan, judul, uraian, tindakan, status), foto sebelum / sesudah, dan halaman detail. Laporan dapat diubah oleh pembuatnya atau admin; hanya admin yang menghapus. Kategori dikelola admin di **Setting**.
 
 ## Kebutuhan
 
@@ -46,13 +60,16 @@ noc-checklist/
 ├── index.html              halaman utama (login, checklist, rekap, setting)
 ├── assets/
 │   ├── css/style.css
-│   └── js/app.js           seluruh logika tampilan
+│   ├── js/app.js           logika tampilan: login, sidebar, Checklist NOC
+│   └── js/teknikal.js      logika aplikasi Teknikal
 ├── api/
 │   ├── config.php          kredensial database, zona waktu, sesi, fungsi bantu
 │   ├── auth.php            login, logout, cek sesi
 │   ├── checklist.php       ambil dan simpan checklist (aturan kunci item ada di sini)
 │   ├── evidence.php        lihat, upload, hapus foto
 │   ├── updates.php         update tindak lanjut item Warning/Down (tindakan + foto)
+│   ├── teknikal.php        aplikasi Teknikal: laporan, foto, dashboard, kategori
+│   ├── lib_access.php      hak akses aplikasi per peran
 │   ├── users.php           CRUD pengguna (admin)
 │   ├── items.php           CRUD item checklist (admin)
 │   ├── report.php          data rekap untuk tampilan web (JSON)
@@ -65,7 +82,8 @@ noc-checklist/
 ├── database.sql            instalasi baru (tabel + 21 item contoh)
 ├── upgrade_v4.sql          menambah tabel evidence ke database lama
 ├── upgrade_v5.sql          menambah kolom putaran (fitur Clear tanpa menghapus data)
-└── upgrade_v6.sql          tabel checklist_updates + kolom evidence.update_id (fitur Update)
+├── upgrade_v6.sql          tabel checklist_updates + kolom evidence.update_id (fitur Update)
+└── upgrade_v7.sql          peran baru (admin / noc / teknis) + tabel aplikasi Teknikal
 ```
 
 ## Instalasi
@@ -97,7 +115,7 @@ sudo nano /var/www/html/api/config.php     # isi DB_NAME, DB_USER, DB_PASS
 Folder ini sengaja **di luar web root** supaya foto hanya bisa dibuka lewat `api/evidence.php` setelah login:
 
 ```bash
-sudo mkdir -p /var/www/noc-storage/evidence
+sudo mkdir -p /var/www/noc-storage/evidence /var/www/noc-storage/teknikal
 sudo chown -R www-data:www-data /var/www/noc-storage
 sudo chmod -R 750 /var/www/noc-storage
 ```
@@ -110,7 +128,7 @@ Jika lokasinya diubah, sesuaikan konstanta `EVIDENCE_DIR` di `evidence.php`, `ex
 php /var/www/html/api/create_user.php admin "Nama Lengkap" PasswordKuat admin
 ```
 
-Format: `username "Nama" password peran` (peran: `admin` atau `petugas`). User berikutnya dibuat dari tab **Setting**, yang mewajibkan password minimal 8 karakter.
+Format: `username "Nama" password peran` (peran: `admin`, `noc`, atau `teknis`). User berikutnya dibuat dari tab **Setting**, yang mewajibkan password minimal 8 karakter.
 
 ### 5. Buka aplikasi
 
@@ -134,7 +152,7 @@ sudo rsync -a --exclude 'api/config.php' --exclude '*.sql' noc-checklist/ /var/w
 
 `config.php` dikecualikan supaya kredensial tidak tertimpa. Setelah mengubah `app.js` atau `style.css`, **naikkan nomor `?v=`** di `index.html` (dua baris) lalu tekan Ctrl+F5, supaya browser mengambil file baru, bukan cache lama.
 
-Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya. Untuk fitur Update, jalankan juga `upgrade_v6.sql` sekali.
+Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya. Untuk fitur Update, jalankan juga `upgrade_v6.sql` sekali. Untuk peran baru dan aplikasi Teknikal, jalankan `upgrade_v7.sql` (peran `petugas` lama otomatis menjadi `noc`).
 
 ## Referensi API
 
@@ -145,6 +163,7 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 | `auth.php` | GET / POST | publik | Cek sesi, `?action=login`, `?action=logout` |
 | `checklist.php` | GET / POST | login | Ambil checklist (`tanggal`, `shift`), simpan item |
 | `evidence.php` | GET / POST | login | Lihat (`?id=`), upload, hapus foto |
+| `teknikal.php` | GET / POST | admin, teknis | Dashboard, daftar, detail, simpan laporan, foto; kategori (admin) |
 | `updates.php` | POST | login (hapus: admin) | Tambah update tindak lanjut (tindakan + foto), hapus update |
 | `report.php` | GET | login | Data rekap periode (`from`, `to`) |
 | `export.php` | GET | login | Unduh `format=csv` atau `xlsx` (`foto=1/0`) |
@@ -161,6 +180,7 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 | `checklist_sessions` | satu baris per tanggal + shift + putaran (Clear admin membuka putaran baru) |
 | `checklist_entries` | status, catatan, jam, petugas, dan waktu isi tiap item |
 | `evidence` | foto per item per sesi (file disimpan di folder storage); `update_id` terisi untuk foto milik sebuah update |
+| `tek_laporan`, `tek_foto`, `tek_kategori` | laporan Teknikal, fotonya (file di `noc-storage/teknikal`), dan daftar kategori |
 | `checklist_updates` | update tindak lanjut per item Warning / Down: tindakan, status selesai, petugas, waktu |
 
 Pengguna atau item yang sudah punya riwayat **tidak dihapus** saat tombol Hapus ditekan, hanya dinonaktifkan, supaya riwayat checklist tetap utuh.

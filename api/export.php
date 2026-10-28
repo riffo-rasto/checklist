@@ -1,9 +1,10 @@
 <?php
 require __DIR__ . '/config.php';
+require __DIR__ . '/lib_access.php';
 require __DIR__ . '/xlsx.php';
 require __DIR__ . '/lib_report.php';
 const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // samakan dengan api/evidence.php
-need_login();
+need_login(); need_app('noc');
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';
 $fmt = ($_GET['format'] ?? 'csv') === 'xlsx' ? 'xlsx' : 'csv';

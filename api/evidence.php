@@ -1,8 +1,9 @@
 <?php
 // Evidence gambar: lihat (GET), unggah (POST multipart), hapus (POST JSON)
 require __DIR__ . '/config.php';
+require __DIR__ . '/lib_access.php';
 require __DIR__ . '/lib_session.php';
-need_login();
+need_login(); need_app('noc');
 const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // di luar web root, hanya bisa dibuka lewat file ini
 $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 

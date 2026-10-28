@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             out(['ok' => true, 'message' => 'Pengguna punya riwayat checklist, jadi dinonaktifkan (tidak dihapus)']);
         }
     }
-    $role = ($b['role'] ?? '') === 'admin' ? 'admin' : 'petugas';
+    $role = in_array($b['role'] ?? '', ['admin', 'noc', 'teknis'], true) ? $b['role'] : 'noc';
     $nama = trim($b['nama'] ?? '');
     $pw = $b['password'] ?? '';
     if ($nama === '') out(['error' => 'Nama wajib diisi'], 422);

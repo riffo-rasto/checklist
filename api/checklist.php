@@ -1,7 +1,8 @@
 <?php
 require __DIR__ . '/config.php';
+require __DIR__ . '/lib_access.php';
 require __DIR__ . '/lib_session.php';
-need_login();
+need_login(); need_app('noc');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     need_csrf();

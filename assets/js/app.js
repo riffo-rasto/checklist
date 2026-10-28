@@ -20,14 +20,44 @@ async function api(path, method = 'GET', body) {
 const msg = (t, err) => { const m = $('#msg'); m.textContent = t; m.className = err ? 'err' : 'ok'; };
 const onErr = e => e.status === 401 ? location.reload() : msg(e.message, true);
 
+// ---- Navigasi sidebar dan hak akses per peran (admin: semua, noc: Checklist NOC, teknis: Teknikal)
+let apps = [], checklistReady = false;
+const VIEWS = {checklist: 'tab-checklist', export: 'tab-export', users: 'tab-users', 'tek-dash': 'v-tek-dash', 'tek-list': 'v-tek-list', 'tek-form': 'v-tek-form', 'tek-detail': 'v-tek-detail'};
+const TITLES = {checklist: 'Checklist NOC', export: 'Rekap & unduh', users: 'Setting', 'tek-dash': 'Teknikal · Dashboard', 'tek-list': 'Teknikal · Laporan', 'tek-form': 'Teknikal · Form laporan', 'tek-detail': 'Teknikal · Detail laporan'};
+const ROLE_LABEL = {admin: 'Admin', noc: 'NOC', teknis: 'Teknis'};
+const allowed = v => v === 'users' ? isAdmin : v.startsWith('tek-') ? apps.includes('teknikal') : apps.includes('noc');
+function closeSide() { $('#side').classList.remove('open'); $('#scrim').hidden = true; }
+function go(v, arg) {
+  if (!allowed(v)) return;
+  document.querySelectorAll('.tab').forEach(t => t.hidden = t.id !== VIEWS[v]);
+  const nav = v === 'tek-detail' ? 'tek-list' : v;
+  document.querySelectorAll('.side [data-go]').forEach(b => b.classList.toggle('active', b.dataset.go === nav));
+  $('#crumb').textContent = TITLES[v];
+  closeSide();
+  if (v === 'checklist' && !checklistReady) { checklistReady = true; load(); }
+  if (v === 'users') { loadUsers(); loadItems(); tekKatAdmin(); }
+  if (v.startsWith('tek-')) tekGo(v, arg);
+  window.scrollTo(0, 0);
+}
+$('#burger').onclick = () => {
+  const sd = $('#side');
+  if (innerWidth < 860) { sd.classList.toggle('open'); $('#scrim').hidden = !sd.classList.contains('open'); }
+  else { sd.classList.toggle('min'); try { localStorage.setItem('sidemin', sd.classList.contains('min') ? '1' : ''); } catch (e) {} }
+};
+$('#scrim').onclick = closeSide;
+document.querySelectorAll('.side [data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+
 function show(u) {
-  csrf = u.csrf; isAdmin = u.role === 'admin';
+  csrf = u.csrf; isAdmin = u.role === 'admin'; apps = u.apps || [];
   $('#clear-all').hidden = !isAdmin;
-  $('#user').textContent = u.nama;
-  $('#tab-users-btn').hidden = u.role !== 'admin';
-  $('#login-view').hidden = true;
-  $('#app-view').hidden = false;
-  load();
+  $('#user').textContent = u.nama; $('#me-name').textContent = u.nama;
+  $('#me-role').textContent = ROLE_LABEL[u.role] || u.role; $('#av').textContent = (u.nama || '?')[0].toUpperCase();
+  document.querySelectorAll('.nav-noc').forEach(e => e.hidden = !apps.includes('noc'));
+  document.querySelectorAll('.nav-tek').forEach(e => e.hidden = !apps.includes('teknikal'));
+  document.querySelectorAll('.nav-adm').forEach(e => e.hidden = !isAdmin);
+  try { if (localStorage.getItem('sidemin') && innerWidth >= 860) $('#side').classList.add('min'); } catch (e) {}
+  $('#login-view').hidden = true; $('#app-view').hidden = false;
+  go(apps.includes('noc') ? 'checklist' : 'tek-dash');
 }
 
 async function load() {
@@ -350,7 +380,7 @@ async function loadUsers() {
       const tr = tb.insertRow();
       tr.insertCell().textContent = u.username;
       tr.insertCell().textContent = u.nama;
-      tr.insertCell().textContent = u.role === 'admin' ? 'Admin' : 'Petugas';
+      tr.insertCell().textContent = ROLE_LABEL[u.role] || u.role;
       tr.insertCell().textContent = +u.aktif ? 'Aktif' : 'Nonaktif';
       const b = document.createElement('button'); b.textContent = 'Edit'; b.onclick = () => editUser(u);
       const del = document.createElement('button'); del.textContent = 'Hapus'; del.className = 'ghost danger'; del.onclick = () => delUser(u);
@@ -372,7 +402,7 @@ function resetUserForm() {
   $('#u-username').disabled = false;
   ['#u-username', '#u-nama', '#u-pass'].forEach(s => $(s).value = '');
   $('#u-pass').placeholder = 'Minimal 8 karakter';
-  $('#u-role').value = 'petugas'; $('#u-aktif').checked = true;
+  $('#u-role').value = 'noc'; $('#u-aktif').checked = true;
 }
 async function saveUser() {
   const m = $('#u-msg');
