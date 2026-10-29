@@ -141,3 +141,14 @@ tr.click{cursor:pointer}tr.click:hover td{background:#f3f6f8}
 .tk-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
 .tk-sec{margin:12px 0;display:grid;gap:4px}.tx{white-space:pre-wrap}.tk-ph{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
 @media print{.side,.scrim{display:none!important}}
+
+/* ---- Dropdown profil (kanan atas) */
+.pmenu{position:relative}
+.pbtn{display:flex;align-items:center;gap:8px;background:none;border:0;color:#fff;padding:4px 8px;cursor:pointer;border-radius:4px}
+.pbtn:hover{background:rgba(255,255,255,.1)}
+.av.sm{width:28px;height:28px;font-size:13px}
+.av.lg{width:72px;height:72px;font-size:30px;background:#2f7aa6;border:3px solid rgba(255,255,255,.5)}
+.ppanel{position:absolute;right:0;top:calc(100% + 8px);width:270px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.28);overflow:hidden;z-index:40}
+.phead{background:#3c8dbc;color:#fff;display:grid;justify-items:center;gap:4px;padding:18px 12px}
+.phead b{font-size:18px}.phead small{letter-spacing:.06em;opacity:.92}
+.pfoot{display:flex;justify-content:space-between;gap:8px;padding:10px;background:#f4f6f8}

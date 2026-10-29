@@ -1,7 +1,7 @@
 // ===== Aplikasi Teknikal: laporan pekerjaan teknisi =====
 // Memakai fungsi dari app.js: $, api, go, warn, shrink, openViewer, dmy, isAdmin
 const TK_CLS = {'Open': 'o', 'In Progress': 'p', 'Selesai': 's'};
-let tkKat = null, tkEditId = 0, ktEdit = 0;
+let tkKat = null, tkTek = [], tkEditId = 0, ktEdit = 0;
 const tkNo = n => 'TK-' + String(n).padStart(5, '0');
 const tkEl = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
 const tkBadge = s => tkEl('span', 'bd ' + (TK_CLS[s] || ''), s);
@@ -19,6 +19,7 @@ function tkThumb(id, onDel) {   // thumbnail foto; klik = tampil besar
 async function tkLoadKat(force) {   // daftar kategori untuk dropdown form dan filter
   if (tkKat && !force) return;
   tkKat = (await api('teknikal.php?action=kategori')).kategori;
+  tkTek = (await api('teknikal.php?action=teknisi')).teknisi;   // hanya user berperan teknis
   const opts = first => [new Option(first, ''), ...tkKat.map(k => new Option(k.nama, k.id))];
   const kf = $('#tk-f-kat').value, kk = $('#tk-kat').value;
   $('#tk-f-kat').replaceChildren(...opts('Semua kategori')); $('#tk-f-kat').value = kf;
@@ -77,17 +78,26 @@ function tkCnt() {
   });
 }
 
+function tkFillTek(extra) {   // admin: pilih teknisi; teknis: hanya dirinya sendiri (terkunci)
+  const sel = $('#tk-tek'); sel.replaceChildren();
+  if (isAdmin) sel.append(new Option('— pilih teknisi —', ''));
+  tkTek.filter(t => isAdmin || +t.id === meId).forEach(t => sel.append(new Option(t.nama, t.id)));
+  if (extra && !tkTek.some(t => +t.id === +extra.id)) sel.append(new Option(extra.nama, extra.id));   // pemilik lama yang bukan teknis tetap tampil saat edit
+}
+
 async function tkForm(id) {
   tkEditId = id || 0;
   $('#tk-ftitle').textContent = id ? `Edit laporan ${tkNo(id)}` : 'Laporan baru';
   ['#tk-lok', '#tk-judul', '#tk-uraian', '#tk-tindakan'].forEach(s => $(s).value = '');
   $('#tk-tgl').value = tkIso(new Date()); $('#tk-kat').value = ''; $('#tk-jenis').value = 'Corrective'; $('#tk-status').value = 'Open';
   ['#tk-fsebelum', '#tk-fsesudah'].forEach(s => $(s).value = ''); tkCnt(); $('#tk-msg').textContent = '';
+  tkFillTek(null); $('#tk-tek').value = isAdmin ? '' : meId; $('#tk-tek').disabled = !isAdmin;
   if (!id) return;
   const d = await api(`teknikal.php?action=get&id=${id}`), l = d.laporan;
   if (!d.can_edit) { alert('Hanya pembuat laporan atau admin yang boleh mengubah'); return go('tek-detail', id); }
   $('#tk-tgl').value = l.tanggal; $('#tk-lok').value = l.lokasi; $('#tk-kat').value = l.kategori_id || ''; $('#tk-jenis').value = l.jenis;
   $('#tk-judul').value = l.judul; $('#tk-uraian').value = l.uraian || ''; $('#tk-tindakan').value = l.tindakan || ''; $('#tk-status').value = l.status;
+  tkFillTek(isAdmin ? {id: l.user_id, nama: l.teknisi} : null); $('#tk-tek').value = l.user_id;
 }
 
 async function tkUpload(id, jenis, files) {   // foto dikecilkan di browser dulu
@@ -100,11 +110,12 @@ async function tkUpload(id, jenis, files) {   // foto dikecilkan di browser dulu
 async function tkSave() {
   const m = $('#tk-msg'); m.className = 'err'; m.textContent = '';
   if (!$('#tk-lok').value.trim() || !$('#tk-judul').value.trim()) { m.textContent = 'Lokasi dan judul wajib diisi'; return; }
+  if (isAdmin && !$('#tk-tek').value) { m.textContent = 'Pilih teknisi'; return; }
   $('#tk-save').disabled = true;
   try {
     const d = await api('teknikal.php', 'POST', {action: 'save', id: tkEditId, tanggal: $('#tk-tgl').value, lokasi: $('#tk-lok').value,
       kategori_id: $('#tk-kat').value, jenis: $('#tk-jenis').value, judul: $('#tk-judul').value, uraian: $('#tk-uraian').value,
-      tindakan: $('#tk-tindakan').value, status: $('#tk-status').value});
+      tindakan: $('#tk-tindakan').value, status: $('#tk-status').value, teknisi_id: $('#tk-tek').value});
     tkEditId = d.id;   // kalau upload foto gagal, simpan ulang memperbarui laporan yang sama
     await tkUpload(d.id, 'Sebelum', $('#tk-fsebelum').files);
     await tkUpload(d.id, 'Sesudah', $('#tk-fsesudah').files);

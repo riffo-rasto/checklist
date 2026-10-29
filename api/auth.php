@@ -19,4 +19,4 @@ if ($a === 'login') {
     out(['ok' => true]);
 }
 if (empty($_SESSION['uid'])) out(['login' => false]);
-out(['login' => true, 'nama' => $_SESSION['nama'], 'role' => $_SESSION['role'], 'apps' => apps_for($_SESSION['role']), 'csrf' => $_SESSION['csrf']]);
+out(['login' => true, 'nama' => $_SESSION['nama'], 'id' => (int)$_SESSION['uid'], 'role' => $_SESSION['role'], 'apps' => apps_for($_SESSION['role']), 'csrf' => $_SESSION['csrf']]);

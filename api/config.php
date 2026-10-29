@@ -2,8 +2,8 @@
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 date_default_timezone_set('Asia/Jakarta');
-// Sesuaikan kredensial database (buat user MySQL khusus, jangan pakai root)
-const DB_HOST = 'localhost', DB_NAME = 'ISI_NAMA_DATABASE', DB_USER = 'ISI_NAMA_USER', DB_PASS = 'GANTI_PASSWORD';
+
+const DB_HOST = 'localhost', DB_NAME = 'DB_NAME', DB_USER = 'USER', DB_PASS = 'GANTI_PASSWORD';
 
 if (PHP_SAPI !== 'cli') {
     session_set_cookie_params(['httponly' => true, 'samesite' => 'Strict', 'secure' => !empty($_SERVER['HTTPS'])]);

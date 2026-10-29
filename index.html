@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Departemen NOC &amp; Teknikal</title>
-  <link rel="stylesheet" href="assets/css/style.css?v=15">
+  <link rel="stylesheet" href="assets/css/style.css?v=17">
 </head>
 <body>
   <section id="login-view" hidden>
@@ -20,7 +20,6 @@
   <section id="app-view" class="shell" hidden>
     <aside class="side" id="side">
       <div class="brand"><i>🛠</i><span>Departemen NOC &amp; Teknikal</span></div>
-      <div class="me"><span class="av" id="av">?</span><div><b id="me-name"></b><small id="me-role"></small></div></div>
       <nav>
         <div class="grp-t nav-noc">CHECKLIST NOC</div>
         <button class="nv nav-noc" data-go="checklist" data-tip="Checklist"><i>✔</i><span>Checklist</span></button>
@@ -28,16 +27,19 @@
         <div class="grp-t nav-tek">TEKNIKAL</div>
         <button class="nv nav-tek" data-go="tek-dash" data-tip="Dashboard"><i>▦</i><span>Dashboard</span></button>
         <button class="nv nav-tek" data-go="tek-list" data-tip="Laporan"><i>📋</i><span>Laporan</span></button>
-        <button class="nv nav-tek" data-go="tek-form" data-tip="Laporan baru"><i>＋</i><span>Laporan baru</span></button>
-        <div class="grp-t nav-adm">ADMIN</div>
-        <button class="nv nav-adm" data-go="users" data-tip="Setting"><i>⚙</i><span>Setting</span></button>
       </nav>
     </aside>
     <div class="scrim" id="scrim" hidden></div>
     <div class="main">
       <header class="top">
         <div class="tl"><button id="burger" class="ghost" aria-label="Menu">☰</button><b id="crumb"></b></div>
-        <div><span id="user"></span> <button id="logout" class="ghost">Keluar</button></div>
+        <div class="pmenu" id="pmenu">
+          <button id="pbtn" class="pbtn" aria-haspopup="true" aria-expanded="false"><span class="av sm" id="av2">?</span><span id="user"></span><span>▾</span></button>
+          <div class="ppanel" id="ppanel" hidden>
+            <div class="phead"><span class="av lg" id="av">?</span><b id="me-name"></b><small id="me-role"></small></div>
+            <div class="pfoot"><button id="u-setting" class="ghost" hidden>Setting</button><button id="logout" class="ghost">Keluar</button></div>
+          </div>
+        </div>
       </header>
 
     <main id="tab-checklist" class="tab" hidden>
@@ -153,7 +155,7 @@
         <div class="sc green" data-st="Selesai"><b id="tk-done">0</b><span>Selesai</span></div>
       </div>
       <div class="two">
-        <div class="card"><h2>Laporan terbaru</h2><div id="tk-recent"></div><div class="bar" style="margin:12px 0 0"><button class="primary small" data-new>+ Laporan baru</button></div></div>
+        <div class="card"><h2>Laporan terbaru</h2><div id="tk-recent"></div></div>
         <div class="card"><h2>Laporan per kategori</h2><div id="tk-bykat"></div></div>
       </div>
     </main>
@@ -190,6 +192,7 @@
           <label>Jenis pekerjaan
             <select id="tk-jenis"><option>Preventive</option><option selected>Corrective</option><option>Instalasi</option><option>Survey</option><option>Lainnya</option></select>
           </label>
+          <label>Teknisi <select id="tk-tek"></select></label>
           <label class="full">Judul <input id="tk-judul" maxlength="200"></label>
           <label class="full">Uraian temuan / pekerjaan <textarea id="tk-uraian" rows="4" maxlength="5000"></textarea></label>
           <label class="full">Tindakan yang dilakukan <textarea id="tk-tindakan" rows="3" maxlength="5000"></textarea></label>
@@ -207,7 +210,7 @@
     <main id="v-tek-detail" class="tab" hidden><div class="card" id="tk-detail"></div></main>
     </div>
   </section>
-  <script src="assets/js/app.js?v=15"></script>
-  <script src="assets/js/teknikal.js?v=15"></script>
+  <script src="assets/js/app.js?v=16"></script>
+  <script src="assets/js/teknikal.js?v=16"></script>
 </body>
 </html>

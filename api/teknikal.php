@@ -37,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
     $act = $_GET['action'] ?? '';
+    if ($act === 'teknisi') out(['teknisi' => db()->query("SELECT id, nama FROM users WHERE role = 'teknis' AND aktif = 1 ORDER BY nama")->fetchAll()]);
     if ($act === 'kategori') out(['kategori' => db()->query('SELECT id, nama FROM tek_kategori WHERE aktif = 1 ORDER BY nama')->fetchAll()]);
     if ($act === 'kategori_all') {
         need_admin();
@@ -88,14 +89,33 @@ if ($act === 'save') {
     if (!$isDate($tgl) || $lok === '' || $jud === '' || mb_strlen($lok) > 150 || mb_strlen($jud) > 200 || mb_strlen($ura) > 5000 || mb_strlen($tin) > 5000)
         out(['error' => 'Tanggal, lokasi, dan judul wajib diisi (lokasi maks. 150, judul maks. 200 karakter)'], 422);
     $now = date('Y-m-d H:i:s');
+    // Teknisi (pemilik laporan): teknis = dirinya sendiri (terkunci); admin memilih salah satu user berperan teknis
+    $admin = ($_SESSION['role'] ?? '') === 'admin';
+    $tid = (int)($b['teknisi_id'] ?? 0);
+    $okTek = function (int $x): bool {
+        $q = db()->prepare("SELECT 1 FROM users WHERE id = ? AND role = 'teknis' AND aktif = 1");
+        $q->execute([$x]);
+        return (bool)$q->fetchColumn();
+    };
     try {
         if ($id) {
-            need_edit(laporan($id));
-            db()->prepare('UPDATE tek_laporan SET tanggal = ?, lokasi = ?, kategori_id = ?, jenis = ?, judul = ?, uraian = ?, tindakan = ?, status = ?, updated_at = ? WHERE id = ?')
-                ->execute([$tgl, $lok, $kat, $jenis, $jud, $ura, $tin, $st, $now, $id]);
+            $l = need_edit(laporan($id));
+            $own = (int)$l['user_id'];
+            if ($admin && $tid && $tid !== $own) {
+                if (!$okTek($tid)) out(['error' => 'Teknisi harus user dengan peran teknis'], 422);
+                $own = $tid;
+            }
+            db()->prepare('UPDATE tek_laporan SET tanggal = ?, lokasi = ?, kategori_id = ?, jenis = ?, judul = ?, uraian = ?, tindakan = ?, status = ?, user_id = ?, updated_at = ? WHERE id = ?')
+                ->execute([$tgl, $lok, $kat, $jenis, $jud, $ura, $tin, $st, $own, $now, $id]);
         } else {
+            if ($admin) {
+                if (!$tid || !$okTek($tid)) out(['error' => 'Pilih teknisi (user dengan peran teknis)'], 422);
+                $own = $tid;
+            } else {
+                $own = $uid;
+            }
             db()->prepare('INSERT INTO tek_laporan (tanggal, lokasi, kategori_id, jenis, judul, uraian, tindakan, status, user_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$tgl, $lok, $kat, $jenis, $jud, $ura, $tin, $st, $uid, $now]);
+                ->execute([$tgl, $lok, $kat, $jenis, $jud, $ura, $tin, $st, $own, $now]);
             $id = (int)db()->lastInsertId();
         }
     } catch (PDOException $e) { out(['error' => 'Kategori tidak valid'], 422); }
