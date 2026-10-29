@@ -44,7 +44,6 @@ CREATE TABLE checklist_entries (
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Evidence (gambar) per item per sesi checklist
 CREATE TABLE IF NOT EXISTS checklist_updates (
   id INT AUTO_INCREMENT PRIMARY KEY,
   entry_id INT NOT NULL,
@@ -69,20 +68,19 @@ CREATE TABLE IF NOT EXISTS evidence (
   FOREIGN KEY (update_id) REFERENCES checklist_updates(id) ON DELETE CASCADE
 );
 
--- 2) Aplikasi Teknikal
 CREATE TABLE IF NOT EXISTS tek_kategori (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nama VARCHAR(60) NOT NULL UNIQUE,
   aktif TINYINT(1) NOT NULL DEFAULT 1
 );
-INSERT IGNORE INTO tek_kategori (nama) VALUES ('TRANSFORMATOR'),('GENERATOR'),('SET'),('PANEL'),('UPS'),('RECTIFIER'),('BATTERE'),('GROUNDING'),('INTERKONEKSI');
+INSERT IGNORE INTO tek_kategori (nama) VALUES ('COORPORATE'),('ELECTRICAL POWER & UPS'),('GOVERMENT'),('JALUR BB'),('JALUR DISTRIBUSI'),('BATTERE'),('GROUNDING'),('INTERKONEKSI');
 
 CREATE TABLE IF NOT EXISTS tek_laporan (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tanggal DATE NOT NULL,
   lokasi VARCHAR(150) NOT NULL,
   kategori_id INT NULL,
-  jenis ENUM('Preventive','Corrective','Instalasi','Survey','Lainnya') NOT NULL DEFAULT 'Corrective',
+  jenis ENUM('Preventive (PM)','Corrective (CM)','Instalasi','Survey','Lainnya') NOT NULL DEFAULT 'Corrective (CM)',
   judul VARCHAR(200) NOT NULL,
   uraian TEXT NULL,
   tindakan TEXT NULL,
