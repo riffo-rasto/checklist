@@ -39,7 +39,9 @@ Satu login, dua aplikasi yang dipilih lewat **sidebar** (bisa dilipat jadi ikon)
 
 Pembatasan dicek di server: pengguna `teknis` yang memanggil endpoint Checklist NOC (atau sebaliknya) akan ditolak (403).
 
-**Teknikal**: laporan pekerjaan teknisi dengan dashboard (jumlah Open / In Progress / Selesai, laporan per kategori), daftar laporan dengan filter (tanggal, status, kategori, pencarian, laporan saya), form laporan (tanggal, lokasi, kategori, jenis pekerjaan, judul, uraian, tindakan, status), foto sebelum / sesudah, dan halaman detail. Laporan dapat diubah oleh pembuatnya atau admin; hanya admin yang menghapus. Kategori dikelola admin di **Setting**.
+**Teknikal**: laporan pekerjaan teknisi dengan dashboard (jumlah Open / In Progress / Selesai, laporan per kategori), daftar laporan dengan filter (tanggal, status, kategori, pencarian, laporan saya), form laporan (tanggal, lokasi, kategori, jenis pekerjaan, judul, uraian, tindakan, status), foto sebelum / sesudah, dan halaman detail. Laporan dapat diubah oleh pembuatnya atau admin; hanya admin yang menghapus.
+
+**Update laporan Teknikal**: di halaman detail, laporan yang belum **Selesai** punya tombol **+ Update** untuk mencatat **tindakan** dan foto (maks. 5) setelah penanganan, bisa berkali-kali (riwayat update tampil di detail). Centang **Pekerjaan sudah selesai** akan mengubah status laporan menjadi Selesai dan menutup update; untuk membukanya lagi, ubah status laporan kembali ke Open / In Progress. Update ditambah oleh pembuat laporan atau admin; hanya admin yang menghapus update. Foto update tidak ikut hitungan foto di daftar laporan dan tidak dihitung dalam batas 20 foto per laporan. Kategori dikelola admin di **Setting**.
 
 ## Kebutuhan
 
@@ -75,6 +77,7 @@ noc-checklist/
 │       │   └── items.js        Setting: item checklist
 │       ├── teknikal/
 │       │   ├── laporan.js      aplikasi Teknikal: dashboard, daftar, form, detail
+│       │   ├── followup.js     update tindak lanjut laporan Teknikal (tindakan + foto)
 │       │   └── kategori.js     Setting: kategori Teknikal
 │       └── main.js             titik masuk: login / logout dan inisialisasi (dimuat paling akhir)
 ├── api/                    endpoint (URL tidak berubah, dipanggil dari JS)
@@ -102,7 +105,8 @@ noc-checklist/
 ├── upgrade_v4.sql          menambah tabel evidence ke database lama
 ├── upgrade_v5.sql          menambah kolom putaran (fitur Clear tanpa menghapus data)
 ├── upgrade_v6.sql          tabel checklist_updates + kolom evidence.update_id (fitur Update)
-└── upgrade_v7.sql          peran baru (admin / noc / teknis) + tabel aplikasi Teknikal
+├── upgrade_v7.sql          peran baru (admin / noc / teknis) + tabel aplikasi Teknikal
+└── upgrade_v8.sql          tabel tek_update + kolom tek_foto.update_id (Update pada laporan Teknikal)
 ```
 
 ## Instalasi
@@ -187,7 +191,7 @@ cd /var/www/html && sudo rm -f api/lib_access.php api/lib_session.php api/lib_re
 
 Jika sebelumnya lokasi foto diubah (`EVIDENCE_DIR` / `TEK_DIR`), aktifkan barisnya di `config.php` yang baru. Setelah itu, izin `chmod 640` pada `config.php` perlu diterapkan lagi (lihat bagian Keamanan).
 
-Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya. Untuk fitur Update, jalankan juga `upgrade_v6.sql` sekali. Untuk peran baru dan aplikasi Teknikal, jalankan `upgrade_v7.sql` (peran `petugas` lama otomatis menjadi `noc`).
+Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya. Untuk fitur Update, jalankan juga `upgrade_v6.sql` sekali. Untuk peran baru dan aplikasi Teknikal, jalankan `upgrade_v7.sql` (peran `petugas` lama otomatis menjadi `noc`). Untuk fitur Update pada laporan Teknikal, jalankan `upgrade_v8.sql` sekali (backup dulu; database baru dari `database.sql` terbaru sudah memilikinya).
 
 ## Referensi API
 
@@ -198,7 +202,7 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 | `auth.php` | GET / POST | publik | Cek sesi, `?action=login`, `?action=logout` |
 | `checklist.php` | GET / POST | login | Ambil checklist (`tanggal`, `shift`), simpan item |
 | `evidence.php` | GET / POST | login | Lihat (`?id=`), upload, hapus foto |
-| `teknikal.php` | GET / POST | admin, teknis | Dashboard, daftar, detail, simpan laporan, foto; kategori (admin) |
+| `teknikal.php` | GET / POST | admin, teknis | Dashboard, daftar, detail (termasuk riwayat update), simpan laporan, foto, `update_add`; `update_delete` dan kategori (admin) |
 | `updates.php` | POST | login (hapus: admin) | Tambah update tindak lanjut (tindakan + foto), hapus update |
 | `report.php` | GET | login | Data rekap periode (`from`, `to`) |
 | `export.php` | GET | login | Unduh `format=csv` atau `xlsx` (`foto=1/0`) |
@@ -215,7 +219,8 @@ Semua endpoint di bawah `api/` membalas JSON (kecuali unduhan dan gambar). Perub
 | `checklist_sessions` | satu baris per tanggal + shift + putaran (Clear admin membuka putaran baru) |
 | `checklist_entries` | status, catatan, jam, petugas, dan waktu isi tiap item |
 | `evidence` | foto per item per sesi (file disimpan di folder storage); `update_id` terisi untuk foto milik sebuah update |
-| `tek_laporan`, `tek_foto`, `tek_kategori` | laporan Teknikal, fotonya (file di `noc-storage/teknikal`), dan daftar kategori |
+| `tek_laporan`, `tek_foto`, `tek_kategori` | laporan Teknikal, fotonya (file di `noc-storage/teknikal`; `update_id` terisi untuk foto milik sebuah update), dan daftar kategori |
+| `tek_update` | update tindak lanjut per laporan Teknikal: tindakan, tanda selesai, petugas, waktu |
 | `checklist_updates` | update tindak lanjut per item Warning / Down: tindakan, status selesai, petugas, waktu |
 
 Pengguna atau item yang sudah punya riwayat **tidak dihapus** saat tombol Hapus ditekan, hanya dinonaktifkan, supaya riwayat checklist tetap utuh.

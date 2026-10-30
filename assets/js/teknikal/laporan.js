@@ -150,6 +150,7 @@ async function tkDetail(id) {
     } : null)));
     s.append(tkEl('b', '', `Foto ${j.toLowerCase()} (${fs.length})`), ph); box.append(s);
   });
+  box.append(tkUpdateBox(id, l, d));   // riwayat + form update (teknikal/followup.js)
   const bar = tkEl('div', 'bar');
   if (d.can_edit) {
     const sel = document.createElement('select'); ['Open', 'In Progress', 'Selesai'].forEach(s => sel.append(new Option(s))); sel.value = l.status;

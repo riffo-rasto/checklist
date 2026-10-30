@@ -1,5 +1,5 @@
 <?php
-// Aplikasi Teknikal: laporan pekerjaan teknisi (CRUD + foto + dashboard). Akses: admin dan teknis.
+// Aplikasi Teknikal: laporan pekerjaan teknisi (CRUD + foto + update tindak lanjut + dashboard). Akses: admin dan teknis.
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/access.php';
 need_login();
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $q = trim($_GET['q'] ?? ''); $like = '%' . $q . '%';
         $mine = !empty($_GET['mine']) ? $uid : 0;
         $s = db()->prepare("SELECT l.id, l.tanggal, l.lokasi, k.nama AS kategori, l.jenis, l.judul, l.status, u.nama AS teknisi,
-                (SELECT COUNT(*) FROM tek_foto f WHERE f.laporan_id = l.id) AS foto
+                (SELECT COUNT(*) FROM tek_foto f WHERE f.laporan_id = l.id AND f.update_id IS NULL) AS foto
             FROM tek_laporan l LEFT JOIN tek_kategori k ON k.id = l.kategori_id JOIN users u ON u.id = l.user_id
             WHERE l.tanggal BETWEEN ? AND ? AND (? = '' OR l.status = ?) AND (? = 0 OR l.kategori_id = ?)
               AND (? = '' OR l.judul LIKE ? OR l.lokasi LIKE ? OR l.uraian LIKE ?) AND (? = 0 OR l.user_id = ?)
@@ -67,9 +67,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($act === 'get') {
         $l = laporan((int)($_GET['id'] ?? 0));
         if (!$l) out(['error' => 'Laporan tidak ditemukan'], 404);
-        $f = db()->prepare('SELECT id, jenis FROM tek_foto WHERE laporan_id = ? ORDER BY id');
+        $f = db()->prepare('SELECT id, jenis FROM tek_foto WHERE laporan_id = ? AND update_id IS NULL ORDER BY id');
         $f->execute([$l['id']]);
-        out(['laporan' => $l, 'fotos' => $f->fetchAll(), 'can_edit' => can_edit($l)]);
+        // riwayat update tindak lanjut beserta foto-fotonya
+        $uq = db()->prepare("SELECT u.id, u.tindakan, u.selesai, DATE_FORMAT(u.created_at, '%d/%m %H:%i') AS waktu, us.nama AS petugas
+            FROM tek_update u JOIN users us ON us.id = u.user_id WHERE u.laporan_id = ? ORDER BY u.id");
+        $uq->execute([$l['id']]);
+        $ups = []; $pos = [];
+        foreach ($uq as $u) {
+            $ups[] = ['id' => (int)$u['id'], 'tindakan' => $u['tindakan'], 'selesai' => (bool)$u['selesai'], 'waktu' => $u['waktu'], 'petugas' => $u['petugas'], 'ev' => []];
+            $pos[(int)$u['id']] = count($ups) - 1;
+        }
+        $ue = db()->prepare('SELECT id, update_id FROM tek_foto WHERE laporan_id = ? AND update_id IS NOT NULL ORDER BY id');
+        $ue->execute([$l['id']]);
+        foreach ($ue as $r) if (isset($pos[(int)$r['update_id']])) $ups[$pos[(int)$r['update_id']]]['ev'][] = (int)$r['id'];
+        out(['laporan' => $l, 'fotos' => $f->fetchAll(), 'updates' => $ups, 'can_edit' => can_edit($l)]);
     }
     out(['error' => 'Aksi tidak dikenal'], 422);
 }
@@ -142,7 +154,7 @@ if ($act === 'foto') {   // multipart: laporan_id, jenis, files[]
         $files[] = [$tmp, $mime];
     }
     if (!$files) out(['error' => 'Tidak ada foto yang dikirim'], 422);
-    $c = db()->prepare('SELECT COUNT(*) FROM tek_foto WHERE laporan_id = ?');
+    $c = db()->prepare('SELECT COUNT(*) FROM tek_foto WHERE laporan_id = ? AND update_id IS NULL');
     $c->execute([$l['id']]);
     if ((int)$c->fetchColumn() + count($files) > 20) out(['error' => 'Maksimal 20 foto per laporan'], 422);
     if (!is_dir(TEK_DIR) && !mkdir(TEK_DIR, 0750, true)) out(['error' => 'Folder penyimpanan foto Teknikal belum ada / tidak bisa dibuat'], 500);
@@ -161,6 +173,61 @@ if ($act === 'foto') {   // multipart: laporan_id, jenis, files[]
         out(['error' => $ex instanceof RuntimeException ? $ex->getMessage() : 'Gagal menyimpan foto'], 500);
     }
     out(['ok' => true, 'ids' => $ids]);
+}
+
+if ($act === 'update_add') {   // update tindak lanjut (multipart: laporan_id, tindakan, selesai, files[])
+    $l = need_edit(laporan((int)($b['laporan_id'] ?? 0)));
+    $tindakan = trim($b['tindakan'] ?? '');
+    if ($tindakan === '' || mb_strlen($tindakan) > 2000) out(['error' => 'Kolom tindakan wajib diisi (maksimal 2000 karakter)'], 422);
+    if ($l['status'] === 'Selesai') out(['error' => 'Laporan sudah selesai, update ditutup. Ubah status dulu jika ingin menambah update'], 422);
+    $files = [];   // validasi semua foto dulu, baru simpan
+    $fl = $_FILES['files'] ?? null;
+    if ($fl && is_array($fl['name'])) foreach ($fl['name'] as $i => $_) {
+        if ($fl['error'][$i] === UPLOAD_ERR_NO_FILE) continue;
+        if ($fl['error'][$i] !== UPLOAD_ERR_OK) out(['error' => 'Unggah foto gagal (kode ' . $fl['error'][$i] . ')'], 422);
+        $tmp = $fl['tmp_name'][$i];
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+        if ($fl['size'][$i] > 8 * 1024 * 1024 || !isset($types[$mime]) || !getimagesize($tmp)) out(['error' => 'Foto harus JPG / PNG / WebP, maksimal 8 MB'], 422);
+        $files[] = [$tmp, $mime];
+    }
+    if (count($files) > 5) out(['error' => 'Maksimal 5 foto per update'], 422);
+    if ($files && !is_dir(TEK_DIR) && !mkdir(TEK_DIR, 0750, true)) out(['error' => 'Folder penyimpanan foto Teknikal belum ada / tidak bisa dibuat'], 500);
+    $selesai = ($b['selesai'] ?? '') === '1';
+    $pdo = db(); $saved = [];
+    try {
+        $pdo->beginTransaction();
+        $now = date('Y-m-d H:i:s');
+        $pdo->prepare('INSERT INTO tek_update (laporan_id, user_id, tindakan, selesai, created_at) VALUES (?,?,?,?,?)')
+            ->execute([$l['id'], $uid, $tindakan, $selesai ? 1 : 0, $now]);
+        $upid = (int)$pdo->lastInsertId();
+        $ins = $pdo->prepare("INSERT INTO tek_foto (laporan_id, jenis, file, mime, user_id, update_id, created_at) VALUES (?,'Lainnya',?,?,?,?,?)");
+        $evIds = [];
+        foreach ($files as [$tmp, $mime]) {
+            $name = bin2hex(random_bytes(16)) . '.' . $types[$mime];
+            if (!move_uploaded_file($tmp, TEK_DIR . $name)) throw new RuntimeException('Gagal menyimpan file (cek izin folder teknikal)');
+            $saved[] = $name;
+            $ins->execute([$l['id'], $name, $mime, $uid, $upid, $now]);
+            $evIds[] = (int)$pdo->lastInsertId();
+        }
+        if ($selesai) $pdo->prepare("UPDATE tek_laporan SET status = 'Selesai', updated_at = ? WHERE id = ?")->execute([$now, $l['id']]);
+        $pdo->commit();
+    } catch (Throwable $ex) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        foreach ($saved as $n) @unlink(TEK_DIR . $n);
+        out(['error' => $ex instanceof RuntimeException ? $ex->getMessage() : 'Gagal menyimpan update'], 500);
+    }
+    out(['ok' => true, 'update' => ['id' => $upid, 'tindakan' => $tindakan, 'selesai' => $selesai,
+        'waktu' => date('d/m H:i', strtotime($now)), 'petugas' => $_SESSION['nama'] ?? '', 'ev' => $evIds]]);
+}
+
+if ($act === 'update_delete') {   // hapus satu update beserta fotonya: khusus admin
+    need_admin();
+    $id = (int)($b['id'] ?? 0);
+    $q = db()->prepare('SELECT file FROM tek_foto WHERE update_id = ?');
+    $q->execute([$id]);
+    foreach ($q->fetchAll() as $r) @unlink(TEK_DIR . $r['file']);
+    db()->prepare('DELETE FROM tek_update WHERE id = ?')->execute([$id]);   // baris foto ikut terhapus (CASCADE)
+    out(['ok' => true]);
 }
 
 if ($act === 'delete_foto') {
