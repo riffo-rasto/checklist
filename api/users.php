@@ -1,6 +1,6 @@
 <?php
 // Manajemen pengguna: hanya admin
-require __DIR__ . '/config.php';
+require __DIR__ . '/lib/bootstrap.php';
 need_admin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -1,6 +1,6 @@
 <?php
 // CRUD item checklist: hanya admin
-require __DIR__ . '/config.php';
+require __DIR__ . '/lib/bootstrap.php';
 need_admin();
 const PRIS = "'P1','P2','P3','P4','END'";
 

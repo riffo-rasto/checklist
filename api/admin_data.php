@@ -2,12 +2,11 @@
 // Khusus admin:
 //  - clear_checklist : kosongkan checklist (mulai putaran baru). Data yang sudah tersimpan TETAP ada di rekap.
 //  - delete_session  : HAPUS rekap satu sesi secara permanen, termasuk foto (baris database + file)
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_session.php';
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/checklist_session.php';
 need_admin();
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(['error' => 'Hanya POST'], 405);
 need_csrf();
-const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // samakan dengan api/evidence.php
 
 function drop_evidence(array $rows): int {   // hapus foto: baris database + file di server
     foreach ($rows as $r) {

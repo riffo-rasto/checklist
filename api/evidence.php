@@ -1,10 +1,9 @@
 <?php
 // Evidence gambar: lihat (GET), unggah (POST multipart), hapus (POST JSON)
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_access.php';
-require __DIR__ . '/lib_session.php';
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/access.php';
+require __DIR__ . '/lib/checklist_session.php';
 need_login(); need_app('noc');
-const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // di luar web root, hanya bisa dibuka lewat file ini
 $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
 // Item yang sudah disimpan (punya status) terkunci: foto tidak bisa ditambah/dihapus, kecuali oleh admin

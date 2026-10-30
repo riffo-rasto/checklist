@@ -1,10 +1,9 @@
 <?php
 // Aplikasi Teknikal: laporan pekerjaan teknisi (CRUD + foto + dashboard). Akses: admin dan teknis.
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_access.php';
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/access.php';
 need_login();
 need_app('teknikal');
-const TEK_DIR = '/var/www/noc-storage/teknikal/';   // di luar web root; foto hanya lewat file ini setelah login
 const T_STATUS = ['Open', 'In Progress', 'Selesai'];
 const T_JENIS = ['Preventive', 'Corrective', 'Instalasi', 'Survey', 'Lainnya'];
 $uid = (int)$_SESSION['uid'];

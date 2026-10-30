@@ -57,27 +57,46 @@ sudo apt install apache2 php libapache2-mod-php php-mysql php-zip php-gd php-mbs
 
 ```
 noc-checklist/
-├── index.html              halaman utama (login, checklist, rekap, setting)
+├── index.html              halaman utama (login, checklist, rekap, setting, Teknikal)
 ├── assets/
 │   ├── css/style.css
-│   ├── js/app.js           logika tampilan: login, sidebar, Checklist NOC
-│   └── js/teknikal.js      logika aplikasi Teknikal
-├── api/
-│   ├── config.php          kredensial database, zona waktu, sesi, fungsi bantu
+│   └── js/                 script biasa (bukan ES module), urutan muatnya ada di index.html
+│       ├── core/
+│       │   ├── core.js         selektor $, state sesi, api(), pesan dan error
+│       │   ├── images.js       perkecil foto, thumbnail, penampil foto besar
+│       │   └── nav.js          sidebar, menu profil, go() (pindah tampilan), show()
+│       ├── checklist/
+│       │   ├── checklist.js    daftar item, status, simpan, kunci, clear
+│       │   ├── evidence.js     foto evidence per item
+│       │   ├── followup.js     update tindak lanjut Warning / Down
+│       │   └── report.js       rekap, filter, unduh CSV / Excel, cetak
+│       ├── admin/
+│       │   ├── users.js        Setting: pengguna
+│       │   └── items.js        Setting: item checklist
+│       ├── teknikal/
+│       │   ├── laporan.js      aplikasi Teknikal: dashboard, daftar, form, detail
+│       │   └── kategori.js     Setting: kategori Teknikal
+│       └── main.js             titik masuk: login / logout dan inisialisasi (dimuat paling akhir)
+├── api/                    endpoint (URL tidak berubah, dipanggil dari JS)
+│   ├── config.php          HANYA kredensial database dan zona waktu (file yang diedit saat instalasi)
 │   ├── auth.php            login, logout, cek sesi
 │   ├── checklist.php       ambil dan simpan checklist (aturan kunci item ada di sini)
 │   ├── evidence.php        lihat, upload, hapus foto
 │   ├── updates.php         update tindak lanjut item Warning/Down (tindakan + foto)
 │   ├── teknikal.php        aplikasi Teknikal: laporan, foto, dashboard, kategori
-│   ├── lib_access.php      hak akses aplikasi per peran
 │   ├── users.php           CRUD pengguna (admin)
 │   ├── items.php           CRUD item checklist (admin)
 │   ├── report.php          data rekap untuk tampilan web (JSON)
-│   ├── lib_report.php      fungsi rekap bersama (web dan Excel)
 │   ├── export.php          unduh CSV dan Excel
-│   ├── xlsx.php            pembuat file Excel (tanpa library)
 │   ├── admin_data.php      Clear checklist (putaran baru) dan hapus rekap (admin)
-│   ├── lib_session.php     mencari/membuat sesi aktif (putaran terbaru)
+│   └── lib/                bukan endpoint, hanya dimuat lewat require
+│       ├── bootstrap.php   dimuat pertama oleh tiap endpoint: ini_set, config, lokasi foto, helper, sesi
+│       ├── helpers.php     db(), out(), body(), need_login / need_csrf / need_admin
+│       ├── access.php      hak akses aplikasi per peran
+│       ├── checklist_session.php  mencari/membuat sesi aktif (putaran terbaru)
+│       ├── report.php      fungsi rekap bersama (web dan Excel)
+│       └── xlsx.php        pembuat file Excel (tanpa library)
+├── bin/
 │   └── create_user.php     buat user lewat terminal
 ├── database.sql            instalasi baru (tabel + 21 item contoh)
 ├── upgrade_v4.sql          menambah tabel evidence ke database lama
@@ -120,12 +139,12 @@ sudo chown -R www-data:www-data /var/www/noc-storage
 sudo chmod -R 750 /var/www/noc-storage
 ```
 
-Jika lokasinya diubah, sesuaikan konstanta `EVIDENCE_DIR` di `evidence.php`, `export.php`, dan `admin_data.php`.
+Jika lokasinya diubah, aktifkan baris `EVIDENCE_DIR` / `TEK_DIR` yang dikomentari di `api/config.php` (cukup di satu tempat). Defaultnya ada di `api/lib/bootstrap.php`.
 
 ### 4. Buat akun admin pertama
 
 ```bash
-php /var/www/html/api/create_user.php admin "Nama Lengkap" PasswordKuat admin
+php /var/www/html/bin/create_user.php admin "Nama Lengkap" PasswordKuat admin
 ```
 
 Format: `username "Nama" password peran` (peran: `admin`, `noc`, atau `teknis`). User berikutnya dibuat dari tab **Setting**, yang mewajibkan password minimal 8 karakter.
@@ -140,8 +159,8 @@ Akses `http://alamat-server/`, lalu login.
 |---|---|
 | Kredensial database | `api/config.php` (`DB_*`) |
 | Zona waktu | `api/config.php` (`date_default_timezone_set`) |
-| Shift otomatis saat halaman dibuka (Pagi 07–15, Siang 15–23, Malam sisanya) | `assets/js/app.js`, bagian akhir file |
-| Maksimal foto per item (5) | `api/evidence.php` dan `app.js` |
+| Shift otomatis saat halaman dibuka (Pagi 07–15, Siang 15–23, Malam sisanya) | `assets/js/main.js` |
+| Maksimal foto per item (5) | `api/evidence.php` dan `assets/js/checklist/evidence.js` |
 | Daftar item checklist | Tab **Setting** (admin) |
 
 ## Memperbarui aplikasi
@@ -150,7 +169,23 @@ Akses `http://alamat-server/`, lalu login.
 sudo rsync -a --exclude 'api/config.php' --exclude '*.sql' noc-checklist/ /var/www/html/
 ```
 
-`config.php` dikecualikan supaya kredensial tidak tertimpa. Setelah mengubah `app.js` atau `style.css`, **naikkan nomor `?v=`** di `index.html` (dua baris) lalu tekan Ctrl+F5, supaya browser mengambil file baru, bukan cache lama.
+`config.php` dikecualikan supaya kredensial tidak tertimpa. Setelah mengubah file di `assets/js/` atau `style.css`, **naikkan nomor `?v=`** di `index.html` (semua baris `<script>` JS, atau baris CSS) lalu tekan Ctrl+F5, supaya browser mengambil file baru, bukan cache lama.
+
+### Migrasi dari versi lama (struktur sebelum `api/lib/`)
+
+Satu kali saja. `api/config.php` lama berisi kredensial **dan** fungsi bantu; yang baru hanya berisi kredensial. Jika `config.php` lama dibiarkan, setiap endpoint membalas error 500 "api/config.php masih versi lama".
+
+```bash
+# 1. simpan kredensial lama
+sudo cp /var/www/html/api/config.php /root/config.php.lama
+# 2. salin versi baru (kali ini config.php ikut), lalu isi ulang DB_HOST / DB_NAME / DB_USER / DB_PASS dari file lama
+sudo rsync -a --exclude '*.sql' noc-checklist/ /var/www/html/
+sudo nano /var/www/html/api/config.php
+# 3. hapus file lama yang sudah dipindah / diganti (rsync tidak menghapusnya sendiri)
+cd /var/www/html && sudo rm -f api/lib_access.php api/lib_session.php api/lib_report.php api/xlsx.php api/create_user.php assets/js/app.js assets/js/teknikal.js
+```
+
+Jika sebelumnya lokasi foto diubah (`EVIDENCE_DIR` / `TEK_DIR`), aktifkan barisnya di `config.php` yang baru. Setelah itu, izin `chmod 640` pada `config.php` perlu diterapkan lagi (lihat bagian Keamanan).
 
 Jika database dibuat sebelum fitur putaran, jalankan `upgrade_v5.sql` sekali (backup dulu). Database yang dibuat dari `database.sql` terbaru sudah memilikinya. Untuk fitur Update, jalankan juga `upgrade_v6.sql` sekali. Untuk peran baru dan aplikasi Teknikal, jalankan `upgrade_v7.sql` (peran `petugas` lama otomatis menjadi `noc`).
 

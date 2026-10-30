@@ -1,8 +1,8 @@
 <?php
 // Data rekap untuk tampilan web (JSON)
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_access.php';
-require __DIR__ . '/lib_report.php';
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/access.php';
+require __DIR__ . '/lib/report.php';
 need_login(); need_app('noc');
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';

@@ -1,9 +1,8 @@
 <?php
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_access.php';
-require __DIR__ . '/xlsx.php';
-require __DIR__ . '/lib_report.php';
-const EVIDENCE_DIR = '/var/www/noc-storage/evidence/';   // samakan dengan api/evidence.php
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/access.php';
+require __DIR__ . '/lib/xlsx.php';
+require __DIR__ . '/lib/report.php';
 need_login(); need_app('noc');
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';

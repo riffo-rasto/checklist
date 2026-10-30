@@ -1,6 +1,6 @@
 <?php
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_access.php';
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/access.php';
 $a = $_GET['action'] ?? 'me';
 if ($a === 'login') {
     $b = body();

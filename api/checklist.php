@@ -1,7 +1,7 @@
 <?php
-require __DIR__ . '/config.php';
-require __DIR__ . '/lib_access.php';
-require __DIR__ . '/lib_session.php';
+require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/access.php';
+require __DIR__ . '/lib/checklist_session.php';
 need_login(); need_app('noc');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
